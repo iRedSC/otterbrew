@@ -1,10 +1,4 @@
-import postgres from "postgres";
-
-const sql = postgres(process.env.DB_URL!, {
-  ssl: false,
-});
-
-export default sql;
+import sql from "./src/database"
 
 
 async function main() {
