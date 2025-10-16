@@ -1,6 +1,0 @@
-[phases.install]
-nixPkgs = ["bun"]
-cmds = ["bun install"]
-
-[start]
-cmd = "bun run start"
