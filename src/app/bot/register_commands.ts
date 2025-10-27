@@ -2,7 +2,7 @@ import { REST, Routes } from "discord.js";
 import { readdirSync } from "fs";
 import path from "path";
 
-const commandsPath = path.join(__dirname, "commands");
+const commandsPath = path.join(__dirname, "src", "app", "bot", "commands");
 const commandFiles = readdirSync(commandsPath).filter((f) => f.endsWith(".ts"));
 
 const commands = commandFiles.map((file) => {
