@@ -10,7 +10,7 @@ const commands = commandFiles.map((file) => {
   return command.data.toJSON();
 });
 
-const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN!);
+const rest = new REST({ version: "10" }).setToken(process.env.BOT_TOKEN!);
 
 (async () => {
   try {

@@ -31,5 +31,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src", "index.ts"]
+  "include": ["src", "index.ts", "register_commands.ts"]
 }
