@@ -31,5 +31,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src"]
+  "include": ["src", "index.ts"]
 }
