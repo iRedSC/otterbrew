@@ -1,7 +1,6 @@
 import { Client, Collection, Events, GatewayIntentBits } from "discord.js";
 import { readdirSync } from "fs";
 import path from "path";
-import "dotenv/config";
 import type { Command } from "@definitions/command";
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
