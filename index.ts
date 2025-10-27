@@ -7,7 +7,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const commands = new Collection<string, Command>();
 
 // Load command modules dynamically
-const commandsPath = path.join(__dirname, "commands");
+const commandsPath = path.join(__dirname, "bot", "commands");
 const commandFiles = readdirSync(commandsPath).filter((f) => f.endsWith(".ts"));
 for (const file of commandFiles) {
   const { command } = require(path.join(commandsPath, file));
