@@ -5,9 +5,9 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- Table: users
 -- ========================
 CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  discord_id BIGINT UNIQUE NOT NULL,
-  gold INTEGER NOT NULL DEFAULT 0
+  discord_id BIGINT PRIMARY KEY,
+  gold INTEGER NOT NULL DEFAULT 0,
+  joined_at TIMESTAMP DEFAULT NOW()
 );
 
 -- ========================

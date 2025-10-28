@@ -2,14 +2,14 @@ version: '2'
 plugins:
 - name: ts
   wasm:
-    url: https://downloads.sqlc.dev/plugin/sqlc-gen-typescript_0.1.3.wasm
-    sha256: 287df8f6cc06377d67ad5ba02c9e0f00c585509881434d15ea8bd9fc751a9368
+    url: https://github.com/RielJ/sqlc-gen-typescript/releases/download/v0.0.1/sqlc-gen-typescript-bun.wasm
+    sha256: 68f6feaca81fd3b3d9140b6b4283add5a99cca9eeefdbc6fe157dc4ef8ed4cd7
 sql:
 - schema: "src/schema.sql"
   queries: "src/queries"
   engine: postgresql
   codegen:
-  - out: src/authors
+  - out: src/app/db
     plugin: ts
     options:
       runtime: node
