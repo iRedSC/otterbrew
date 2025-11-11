@@ -30,18 +30,22 @@ export const command: Command = {
     ),
 
   async execute(interaction) {
+    const username = interaction.user.globalName
+
     const sub = interaction.options.getSubcommand();
     const discordId = interaction.user.id;
+    console.log(`${username}: /gold ${sub}`)
     
     let user = await getByDiscordID(db, {discordId: discordId});
     if (!user) user = await createUser(db, { discordId });
-    if (!user) return;
-
+    if (!user) {
+        await interaction.reply(`No user found.`);
+        return;
+    }
+    
     if (sub === "get") {
-        await interaction.reply(
-      `You have ${user.gold} gold.`
-    );
-    return;
+        await interaction.reply(`You have ${user.gold} gold.`);
+        return;
     }
     
     const amount = interaction.options.getInteger("amount", true);
