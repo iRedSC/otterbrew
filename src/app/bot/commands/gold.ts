@@ -22,17 +22,29 @@ export const command: Command = {
         .addIntegerOption((opt) =>
           opt.setName("amount").setDescription("Amount to remove").setRequired(true)
         )
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("get")
+        .setDescription("Get your current gold balance.")
     ),
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
-    const amount = interaction.options.getInteger("amount", true);
     const discordId = interaction.user.id;
-
+    
     let user = await getByDiscordID(db, {discordId: discordId});
     if (!user) user = await createUser(db, { discordId });
     if (!user) return;
 
+    if (sub === "get") {
+        await interaction.reply(
+      `You have ${user.gold} gold.`
+    );
+    return;
+    }
+    
+    const amount = interaction.options.getInteger("amount", true);
     const newGold =
       sub === "add" ? user.gold + amount : Math.max(0, user.gold - amount);
 
