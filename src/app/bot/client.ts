@@ -12,6 +12,7 @@ const commandFiles = readdirSync(commandsPath).filter((f) => f.endsWith(".ts"));
 for (const file of commandFiles) {
   const { command } = require(path.join(commandsPath, file));
   commands.set(command.data.name, command);
+  console.log(`Registered command ${command.data.name}`)
 }
 
 client.once(Events.ClientReady, (readyClient) =>
