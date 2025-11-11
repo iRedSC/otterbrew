@@ -36,6 +36,7 @@ export const command: Command = {
     const sub = interaction.options.getSubcommand();
     const discordId = interaction.user.id;
     console.log(`${username}: /gold ${sub}`)
+    await interaction.reply(`You have gold.`);
     
     let user = await getByDiscordID(db, {discordId: discordId});
     console.log(`Found user ${user}`)
