@@ -3,7 +3,7 @@ import { readdirSync } from "fs";
 import path from "path";
 import type { Command } from "@definitions/command";
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+export const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const commands = new Collection<string, Command>();
 
 // Load command modules dynamically
@@ -37,5 +37,3 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   }
 });
-
-client.login(process.env.DISCORD_TOKEN);

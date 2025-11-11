@@ -1,0 +1,45 @@
+import { db } from "@db";
+import type { Command } from "@definitions/command";
+import { createUser, getByDiscordID, setGold } from "@queries/users_sql";
+import { SlashCommandBuilder } from "discord.js";
+
+export const command: Command = {
+  data: new SlashCommandBuilder()
+    .setName("gold")
+    .setDescription("Manage a user's gold balance.")
+    .addSubcommand((sub) =>
+      sub
+        .setName("add")
+        .setDescription("Add gold to your account.")
+        .addIntegerOption((opt) =>
+          opt.setName("amount").setDescription("Amount to add").setRequired(true)
+        )
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("remove")
+        .setDescription("Remove gold from your account.")
+        .addIntegerOption((opt) =>
+          opt.setName("amount").setDescription("Amount to remove").setRequired(true)
+        )
+    ),
+
+  async execute(interaction) {
+    const sub = interaction.options.getSubcommand();
+    const amount = interaction.options.getInteger("amount", true);
+    const discordId = interaction.user.id;
+
+    let user = await getByDiscordID(db, {discordId: discordId});
+    if (!user) user = await createUser(db, { discordId });
+    if (!user) return;
+
+    const newGold =
+      sub === "add" ? user.gold + amount : Math.max(0, user.gold - amount);
+
+    await setGold(db, {discordId: user.discordId, gold: newGold});
+
+    await interaction.reply(
+      `Your gold has been ${sub === "add" ? "increased" : "decreased"} to ${newGold}.`
+    );
+  },
+};

@@ -9,7 +9,7 @@ sql:
   queries: "src/queries"
   engine: postgresql
   codegen:
-  - out: src/app/db
+  - out: src/app/db/generated
     plugin: ts
     options:
       runtime: node

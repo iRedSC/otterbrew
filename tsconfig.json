@@ -2,7 +2,10 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@definitions/*": ["src/types/*"]
+      "@definitions/*": ["src/types/*"],
+      "@bot/*": ["src/app/bot/*"],
+      "@db": ["src/app/db/db.ts"],
+      "@queries/*": ["src/app/db/generated/*"]
     },
 
     // Environment setup & latest features
