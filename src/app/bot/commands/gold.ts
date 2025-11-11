@@ -37,7 +37,6 @@ export const command: Command = {
     console.log(`${username}: /gold ${sub}`)
     
     let user = await getByDiscordID(db, {discordId: discordId});
-    if (!user) user = await createUser(db, { discordId });
     if (!user) {
         await interaction.reply(`No user found.`);
         return;
