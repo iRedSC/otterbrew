@@ -31,6 +31,7 @@ export const command: Command = {
 
   async execute(interaction) {
     const username = interaction.user.globalName
+    await interaction.deferReply()
 
     const sub = interaction.options.getSubcommand();
     const discordId = interaction.user.id;
