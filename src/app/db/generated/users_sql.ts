@@ -45,7 +45,9 @@ export interface GetByDiscordIDRow {
 }
 
 export async function getByDiscordID(sql: Sql, args: GetByDiscordIDArgs): Promise<GetByDiscordIDRow | null> {
+    console.log("getting user")
     const rows = await sql.unsafe(getByDiscordIDQuery, [args.discordId]).values();
+    console.log("Got user")
     if (rows.length !== 1) {
         return null;
     }
