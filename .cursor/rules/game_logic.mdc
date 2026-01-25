@@ -1,0 +1,1014 @@
+---
+description: Otterbrew game logic and mechanics. Reference for: potion attribute system (8D vectors), brewing mechanics, grimoire upgrades, story system (Adventures/Bazaar), AI generation rules, garden system, shop mechanics, effect system, player state schemas, database structures, reward calculations, and all core game systems. Essential for any questions about game rules, data structures, or feature implementation.
+alwaysApply: false
+---
+# Otterbrew Game Logic Rules
+
+## Core Concepts
+
+Otterbrew is a Discord bot where players gather ingredients, brew potions, and use those potions in AI-generated stories. The game revolves around an 8-dimensional attribute system, procedural potion generation, and narrative gameplay.
+
+## Potion Attribute System
+
+### Base Attributes
+Every potion has 8 attributes represented as integers (can be negative):
+- Spice
+- Time
+- Fizz
+- Zest
+- Bane
+- Fantasy
+- Chaos
+- Darkness
+
+### Attribute Math
+- Ingredients add their attribute values to the potion
+- Example: Ingredient with [5 Spice, -4 Fizz] + Cauldron with [10 Spice, 2 Fizz] = [15 Spice, -2 Fizz]
+- Total attribute sum determines rarity tier
+
+### Rarity Tiers
+Based on sum of absolute values of all attributes:
+- 1-50: Basic
+- 51-100: Uncommon
+- 101-200: Rare
+- 201-350: Epic
+- 351-500: Legendary
+- 501+: Mythic
+
+## Vector Similarity & Potion Discovery
+
+### Distance Calculation
+- Use **Euclidean distance** in 8D space
+- Magnitude matters: [10,0,0,0,0,0,0,0] and [100,0,0,0,0,0,0,0] are different potions
+- Store potion vectors in PostgreSQL with pgvector extension
+
+### Discovery Process
+When brewing a new potion:
+
+1. **Check Existing Potions**: Query vector DB for nearby potions
+2. **Distance Threshold**: Define max distance `D` for same potion type (tune based on testing, suggest starting at 20-30% of average attribute value)
+3. **New Potion Creation** (if outside all thresholds):
+   - Choose random point within threshold distance from brewed attributes (reroll if it collides with existing potion territory)
+   - This random point becomes the **potion center**
+   - Calculate quality: `quality = 1 - (distance_from_center / threshold) * 100%`
+   - Generate procedural metadata (tier, effect count, modifiers)
+   - Send to AI for name/description/effects generation
+   - Validate AI output (see validation section)
+   - Save to database
+4. **Existing Potion** (if within threshold):
+   - Calculate quality based on distance from that potion's center
+   - Award existing potion with calculated quality
+
+### Quality Scaling
+```ts
+quality_percentage = max(0, 100 - (euclidean_distance / quality_threshold * 100))
+```
+
+## Modifier System
+
+### Potion Modifiers (Ingredients)
+- Special ingredients that transform the entire potion
+- **Only one potion modifier allowed per brew**
+- Examples:
+  - Antimatter: Reverses all attribute signs
+  - Amplifier: Doubles all attribute values
+  - Nullifier: Sets all attributes to their absolute values
+- Applied during brewing, before potion generation
+
+### Potion Effects (Applied on Consumption)
+Effects modify gameplay stats temporarily. **Effects cannot modify slot limits** - those are upgraded via Grimoires.
+
+#### Effect Schema
+```ts
+interface PotionEffect {
+  type: EffectType;
+  operation: 'multiply' | 'add' | 'set';
+  value: number;
+  duration: number; // seconds (0 = permanent, only for ultra-mythic tier)
+  overdoseThreshold: number;
+  overdoseEffect: PotionEffect;
+}
+```
+
+#### Effect Types (Expandable)
+Core types to implement:
+- `gold_multiplier` - Increases gold earned
+- `brew_speed` - Reduces brewing time
+- `garden_growth_speed` - Reduces plant growth time
+- `garden_yield_multiplier` - Increases harvest quantity
+- `shop_reroll_cost` - Modifies reroll cost
+- `ingredient_quality` - Affects ingredient attribute values
+- `effect_duration` - Increases duration of other effects
+- `overdose_immunity` - Prevents overdose (very rare)
+- `discovery_bonus` - Better quality on potion discovery
+- `adventure_cooldown` - Reduces daily adventure cooldown
+- `bazaar_cooldown` - Reduces bazaar cooldown
+- `story_difficulty_modifier` - Easier/harder story scenarios
+- `customer_satisfaction_bonus` - Improves bazaar rating gains
+
+**REMOVED**: cauldron_slots, inventory_slots, garden_plots, shop_slots (now Grimoire-only)
+
+#### Effect Stacking Rules
+1. **Same type overwrites**: Using another "2x gold" effect replaces the existing one
+2. **Different types stack**: Gold multiplier + brew speed both active
+3. **Calculation order**: multiply → add → set
+   - Example: base = 10, [2x multiply, +5 add] = (10 * 2) + 5 = 25
+4. **Overdose checking**: Sum ALL active effects of same type, check against threshold
+
+#### Duration System
+- Track effect start time and duration in player state
+- Expire effects on command execution (lazy expiration)
+- Display time remaining in player status
+- Permanent effects (duration = 0) only from ultra-rare sources
+
+## Grimoires
+
+Grimoires are consumable items that **permanently** upgrade player maximums.
+
+### Grimoire Properties
+```ts
+interface Grimoire {
+  id: string;
+  name: string; // unique identifier
+  description: string;
+  upgrades: {
+    stat: GrimoireStat;
+    value: number;
+  }[];
+  tier: RarityTier;
+  lore?: string;
+}
+
+type GrimoireStat =
+  | 'max_inventory_slots'
+  | 'max_cauldron_slots'
+  | 'max_garden_plots'
+  | 'max_shop_slots'
+  | 'max_mana'
+  | 'base_brew_speed_reduction'
+  | 'garden_temp_range'
+  | 'garden_humidity_range'
+  | 'garden_light_range';
+```
+
+### Grimoire Rules
+1. **One per name per player**: "Dwarf's Guide to Storage" can only be used once
+2. **Multiple grimoires can upgrade same stat**: "Dwarf's Guide to Storage" (+1 inventory) and "Backpacks and You" (+1 inventory) can both be used
+3. **Consumed on use**: Grimoire is removed from inventory
+4. **Added to library**: Player's library tracks all grimoires ever used (cosmetic collection)
+5. **Tradeable**: Can be sold on shop before using
+
+### Upgrade Values
+Slot-based upgrades: **+1 per grimoire**
+Other upgrades: Varies based on stat (define per stat type)
+
+Example:
+```ts
+const grimoireUpgradeValues = {
+  max_inventory_slots: 1,
+  max_cauldron_slots: 1,
+  max_garden_plots: 1,
+  max_shop_slots: 1,
+  max_mana: 10,
+  base_brew_speed_reduction: 5, // -5 seconds
+};
+```
+
+### Library System
+- Purely cosmetic collection tracker
+- Displays all grimoires ever used by player
+- Shows name, description, upgrades applied
+- No gameplay bonuses for collection progress
+
+## Story System
+
+AI-generated narrative experiences that reward players with grimoires, gold, and ingredients.
+
+### Story Types
+
+#### Adventures
+- **Frequency**: 1 per day (modifiable via effects)
+- **Duration**: Up to 10 cycles
+- **Gameplay**: Use potions to fight monsters, help NPCs, solve problems
+- **Difficulty**: Random per day, potentially same for all players
+- **Pauseable**: Can leave and return anytime, but cannot do other bot actions while active
+- **Failure**: No penalty beyond no rewards
+- **Non-repeatable**: Each adventure is unique
+
+#### Bazaar
+- **Frequency**: Every 30 minutes (modifiable via effects)
+- **Duration**: Single cycle (customer presents need → player offers potion → evaluation)
+- **Gameplay**: Serve AI customers with potions that solve their problems
+- **Difficulty**: Scales with player progression
+- **Pauseable**: Can exit, brew a needed potion, and re-enter with same customer
+- **Customer Memory**: 25% chance customer saved to DB, 10% chance existing customer returns
+- **Rating System**: Performance affects future customer difficulty
+
+### Story State Management
+
+#### Adventure State Schema
+```ts
+interface AdventureState {
+  id: string;
+  playerId: string;
+  startedAt: timestamp;
+  completedAt: timestamp | null;
+  difficulty: DifficultyLevel;
+  currentCycle: number;
+  maxCycles: 10;
+  conversationHistory: StoryMessage[];
+  itemsUsed: {
+    itemType: 'potion' | 'ingredient';
+    itemId: string;
+    cycle: number;
+  }[];
+  cycleScores: number[]; // 0-100 per cycle
+  complete: boolean;
+}
+
+interface StoryMessage {
+  cycle: number;
+  role: 'ai' | 'player';
+  content: string;
+  timestamp: timestamp;
+  actionType?: 'use_item' | 'text_choice';
+  actionData?: any;
+}
+
+type DifficultyLevel = 'trivial' | 'easy' | 'moderate' | 'hard' | 'extreme';
+```
+
+#### Bazaar State Schema
+```ts
+interface BazaarEncounter {
+  id: string;
+  playerId: string;
+  customerId: string | null; // null if new customer
+  startedAt: timestamp;
+  completedAt: timestamp | null;
+  customerNeed: string;
+  customerDescription: string;
+  conversationHistory: StoryMessage[];
+  potionOffered: string | null; // potion ID
+  skillScore: number | null; // 0-100
+  complete: boolean;
+}
+
+interface BazaarCustomer {
+  id: string;
+  name: string;
+  description: string;
+  personalityTraits: string[];
+  pastInteractions: BazaarInteractionSummary[];
+  firstSeen: timestamp;
+  lastSeen: timestamp;
+}
+
+interface BazaarInteractionSummary {
+  playerId: string;
+  date: timestamp;
+  problemSummary: string;
+  solutionSummary: string;
+  satisfied: boolean;
+  aiGeneratedSummary: string; // AI creates this for future reference
+}
+```
+
+### Story Generation Flow
+
+#### Adventure Generation
+1. **Code determines difficulty**:
+   ```ts
+   const difficulty = selectDailyDifficulty(); // random weighted
+   const attributes = generateStoryAttributes(difficulty);
+   // e.g., ['dark', 'flashy', 'quick']
+   ```
+
+2. **AI prompt**:
+   ```
+   Create a fantasy adventure for an alchemist with these attributes: [dark, flashy, quick].
+   Difficulty: {difficulty}
+   
+   Rules:
+   - Provide a compelling opening scenario
+   - Create opportunities for potion use (2-4 uses expected)
+   - {difficulty-specific instructions}
+   - After player input, evaluate their action and describe the outcome
+   ```
+
+3. **Cycle loop**:
+   - AI presents situation
+   - Offer player: item usage button OR multiple choice text options
+   - Player responds
+   - AI evaluates: scores the response (0-100) across multiple criteria
+   - Continue until story resolves or 10 cycles reached
+
+#### Bazaar Generation
+1. **Customer selection**:
+   ```ts
+   const useReturningCustomer = Math.random() < 0.1 && existingCustomers.length > 0;
+   
+   if (useReturningCustomer) {
+     customer = selectRandomCustomer(existingCustomers);
+   } else {
+     customer = await generateNewCustomer(playerProgression);
+   }
+   ```
+
+2. **AI prompt for new customer**:
+   ```
+   Create a fantasy customer that needs a potion.
+   Give the customer's need a basic attribute: {heat, cold, wind, plant_growth, healing, etc}
+   Player progression level: {progressionTier}
+   
+   {If returning customer, include: "Customer history: {summaries}"}
+   
+   Provide:
+   - Customer name and appearance
+   - Their problem/need
+   - Personality hints
+   ```
+
+3. **Interaction**:
+   - AI presents customer and need
+   - Player offers potion (or declines)
+   - AI evaluates: Does potion solve the need? (based on potion name, description, lore)
+   - Generate multiple scores: item_match, creativity, customer_satisfaction
+   - If customer should be saved: Generate summary for future reference
+
+### Skill Percentage Calculation
+
+#### Multi-Criteria Scoring
+AI evaluates each cycle/interaction across multiple dimensions:
+
+**Adventure Criteria**:
+- `item_application`: Appropriateness of potion/ingredient used (0-100)
+- `narrative_quality`: Player's text choices and reasoning (0-100)
+- `efficiency`: Cycles used vs optimal path (0-100)
+- `creativity`: Unexpected but effective solutions (0-100)
+
+**Bazaar Criteria**:
+- `item_match`: Does potion attributes align with need? (0-100)
+- `customer_satisfaction`: Did it solve the problem? (0-100)
+- `creative_interpretation`: Novel use of potion (0-100)
+
+#### Final Skill Score
+```ts
+// Adventures: Average all cycle scores
+const adventureSkill = cycleScores.reduce((a, b) => a + b) / cycleScores.length;
+
+// Bazaar: Weighted average
+const bazaarSkill = (
+  criteria.item_match * 0.4 +
+  criteria.customer_satisfaction * 0.4 +
+  criteria.creative_interpretation * 0.2
+);
+```
+
+### Reward System
+
+#### Reward Tiers by Skill
+```ts
+const rewardTiers = {
+  grimoire: { minSkill: 90, chance: 0.15 }, // 15% at 90+ skill
+  rare_ingredient: { minSkill: 75, chance: 0.30 },
+  uncommon_ingredient: { minSkill: 50, chance: 0.50 },
+  gold_high: { minSkill: 75, multiplier: 3 },
+  gold_medium: { minSkill: 50, multiplier: 2 },
+  gold_low: { minSkill: 0, multiplier: 1 },
+};
+```
+
+#### Reward Types
+- **Grimoires**: 90+ skill, scaled by difficulty
+- **Gold**: Always awarded, scaled by skill and difficulty
+- **Ingredients**: Common to Legendary, scaled by skill
+- **NO potions or effects**: Must be brewed/discovered
+
+#### Difficulty Scaling
+Higher difficulty = better base rewards:
+```ts
+const difficultyMultipliers = {
+  trivial: 0.5,
+  easy: 1.0,
+  moderate: 1.5,
+  hard: 2.0,
+  extreme: 3.0,
+};
+
+const finalGoldReward = baseGold * skillMultiplier * difficultyMultiplier;
+```
+
+### Bazaar Rating System
+
+#### Rating Mechanics
+- Players have a `bazaar_rating` (0-100, starts at 50)
+- Rating affects customer difficulty and reward potential
+
+```ts
+interface BazaarRating {
+  playerId: string;
+  rating: number; // 0-100
+  successfulServes: number;
+  failedServes: number;
+  customersDeclined: number;
+}
+```
+
+#### Rating Changes
+```ts
+// Success
+if (skillScore >= 75) {
+  rating += 2;
+} else if (skillScore >= 50) {
+  rating += 1;
+}
+
+// Failure
+if (skillScore < 25) {
+  rating -= 2;
+}
+
+// Decline customer
+rating -= 1;
+
+// Cap at 0-100
+rating = Math.max(0, Math.min(100, rating));
+```
+
+#### Rating Effects
+```ts
+// Customer difficulty scales with rating
+const customerDifficulty = Math.floor(rating / 20); // 0-5 scale
+
+// Higher rating = harder customers but better rewards
+const rewardMultiplier = 1 + (rating / 100);
+```
+
+### Story Restrictions While Active
+
+When a player has an active story:
+- **Cannot**: brew potions, plant/harvest garden, list/buy shop items
+- **Can**: view inventory, check shop, view status
+- **Exception (Bazaar only)**: Can exit temporarily to brew a potion, then re-enter
+
+Existing time-based events continue (timestamp-based):
+- Brewing completes
+- Plants grow
+- Effects expire
+
+## Brewing System
+
+### Cauldron Mechanics
+- Base slots: 5 (**grimoire upgrades only**)
+- Ingredients consumed on brew start
+- No queuing - one active brew per player
+- Cannot brew while story active
+
+### Brewing Time Calculation
+```ts
+brew_time_seconds = base_time + abs(sum(attributes)) + ingredient_count - effect_modifiers
+```
+- `base_time`: 60 seconds (can be reduced via grimoires)
+- `effect_modifiers`: Sum of all active brew speed effects
+
+### Brewing Process
+1. Validate cauldron has ingredients
+2. Validate only 0-1 potion modifiers present
+3. Validate player not in active story
+4. Calculate final attributes (sum ingredients + apply modifiers)
+5. Calculate brew time
+6. Set brew start time in player state
+7. Lock cauldron until brew completes
+8. On completion: Run discovery/quality calculation, award potion
+
+## Garden System
+
+### Garden Environment
+Three environmental factors affect plant growth:
+
+#### Temperature
+- Range: -10 to 10 (default: 0, **grimoire upgradeable**)
+- Affects attribute distribution:
+  - Cold (-10 to -3): Favors Darkness, Bane (negative attributes)
+  - Neutral (-2 to 2): Balanced distribution
+  - Hot (3 to 10): Favors Spice, Fizz (positive attributes)
+
+#### Humidity
+- Range: 0 to 10 (default: 5, **grimoire upgradeable**)
+- Affects attribute distribution:
+  - Low (0-3): Favors Chaos, Zest
+  - Medium (4-6): Balanced
+  - High (7-10): Favors Time, Fantasy
+
+#### Light
+- Range: 0 to 10 (default: 5, **grimoire upgradeable**)
+- Affects growth speed and yield quality:
+  - Low (0-3): Slower growth, lower attribute values
+  - Medium (4-6): Normal growth
+  - High (7-10): Faster growth, higher attribute values
+
+### Garden Mechanics
+- Base plots: 3 (**grimoire upgrades only**)
+- Seeds are abstract (e.g., "round seeds", "glowing red seeds")
+- Each seed type has weighted probability table for plant outcomes
+- Plants inherit environment modifiers during growth
+- Single harvest per plant
+- Growth time affected by light level and effects
+- Cannot plant/harvest while story active
+
+### Seed Schema
+```ts
+interface Seed {
+  id: string;
+  name: string;
+  description: string;
+  baseGrowthTime: number; // seconds
+  possiblePlants: {
+    plantId: string;
+    weight: number;
+    environmentModifiers?: {
+      minTemp?: number;
+      maxTemp?: number;
+      minHumidity?: number;
+      maxHumidity?: number;
+      minLight?: number;
+      maxLight?: number;
+    };
+  }[];
+}
+```
+
+### Plant Growth Calculation
+```ts
+const envMultiplier = calculateEnvironmentMultiplier(light, humidity, temperature);
+const effectMultiplier = getActiveEffectMultiplier('garden_growth_speed');
+const finalGrowthTime = seed.baseGrowthTime * envMultiplier * effectMultiplier;
+```
+
+## Shop System
+
+### Player Selling
+- Players can list items (potions, ingredients, seeds, **unused grimoires**)
+- Base slots: 3 (**grimoire upgrades only**)
+- Listings are global, visible to all players
+- Items locked until delisted or sold
+- Cannot list while story active
+
+### Listing Schema
+```ts
+interface ShopListing {
+  id: string;
+  sellerId: string;
+  itemType: 'potion' | 'ingredient' | 'seed' | 'grimoire';
+  itemId: string;
+  price: number; // gold
+  listedAt: timestamp;
+}
+```
+
+### Shop Browsing
+- `/shop` command shows 3 random listings
+- Exclude seller's own listings
+- Reroll available every 10s base
+- Reroll cost increases per use (resets daily):
+  ```ts
+  const rerollCost = baseRerollCost * Math.pow(1.5, rerollsToday);
+  ```
+- Reroll cost modifiable via effects
+- Can browse while story active
+
+### Transaction Flow
+1. Buyer uses `/shop buy <listing_id>`
+2. Validate buyer has sufficient gold
+3. Validate seller still has item (not already sold)
+4. Validate buyer not in active story
+5. Transfer gold: buyer → seller
+6. Transfer item: seller → buyer
+7. Remove listing
+8. Both parties notified
+
+## AI Generation & Validation
+
+### Potion Generation
+
+#### Input to AI
+```ts
+interface PotionGenerationInput {
+  attributes: {
+    spice: number;
+    time: number;
+    fizz: number;
+    zest: number;
+    bane: number;
+    fantasy: number;
+    chaos: number;
+    darkness: number;
+  };
+  tier: RarityTier;
+  quality: number; // 0-100
+  suggestedEffectCount: number;
+  modifiers: string[];
+}
+```
+
+#### AI Output Format
+```ts
+interface PotionGenerationOutput {
+  name: string; // max 50 chars
+  description: string; // max 500 chars
+  effects: PotionEffect[];
+  flavorText?: string;
+}
+```
+
+#### Validation Rules
+1. **Name**: 3-50 characters, no special chars except spaces/hyphens
+2. **Description**: 10-500 characters
+3. **Effects**:
+   - Count matches tier guidelines
+   - All effect types are recognized/implemented
+   - Operation is valid ('multiply', 'add', or 'set')
+   - Value is reasonable (define ranges per effect type)
+   - Duration is reasonable (1-86400 seconds, or 0 for permanent if mythic)
+   - Overdose threshold > value
+   - **Cannot include slot-modifying effects** (cauldron_slots, inventory_slots, etc.)
+4. **Reject & Retry**: Max 3 attempts, fallback to template-based generation
+
+### Story Generation
+
+#### Adventure AI Output
+```ts
+interface AdventureCycleOutput {
+  narrative: string; // story continuation
+  options: {
+    type: 'item_use' | 'text_choice';
+    choices?: string[]; // if text_choice
+  };
+  evaluation?: { // if evaluating previous cycle
+    scores: {
+      item_application?: number; // 0-100
+      narrative_quality?: number;
+      efficiency?: number;
+      creativity?: number;
+    };
+    overallScore: number; // 0-100
+    feedback: string; // what went well/poorly
+  };
+  storyComplete: boolean;
+  outcomeDescription?: string; // if complete
+}
+```
+
+#### Bazaar AI Output
+```ts
+interface BazaarCycleOutput {
+  customerIntro?: { // if first interaction with this customer
+    name: string;
+    description: string;
+    personality: string[];
+  };
+  customerNeed: string;
+  evaluation?: { // if player offered potion
+    scores: {
+      item_match: number; // 0-100
+      customer_satisfaction: number;
+      creative_interpretation: number;
+    };
+    overallScore: number;
+    customerReaction: string;
+    problemSolved: boolean;
+  };
+  interactionSummary?: string; // if customer should be saved
+}
+```
+
+#### Validation Rules
+**Adventures**:
+- `narrative` not empty, max 2000 chars
+- `options.type` is valid
+- If `text_choice`, must have 2-4 choices
+- `evaluation.overallScore` between 0-100
+- All sub-scores between 0-100
+
+**Bazaar**:
+- `customerNeed` not empty, max 500 chars
+- `evaluation.overallScore` between 0-100
+- All sub-scores between 0-100
+- `interactionSummary` max 500 chars
+
+## Player State Schema
+
+### Core Player Data
+```ts
+interface Player {
+  discordId: string;
+  gold: number;
+  inventory: InventorySlot[];
+  maxInventorySlots: number; // grimoire-upgraded
+  cauldron: CauldronState;
+  garden: GardenState;
+  activeEffects: ActiveEffect[];
+  shopListings: ShopListing[];
+  maxShopSlots: number; // grimoire-upgraded
+  grimoireLibrary: UsedGrimoire[];
+  bazaarRating: BazaarRating;
+  stats: PlayerStats;
+  activeStory: string | null; // adventure/bazaar ID
+}
+
+interface InventorySlot {
+  itemType: 'potion' | 'ingredient' | 'seed' | 'grimoire';
+  itemId: string;
+  quantity: number;
+}
+
+interface CauldronState {
+  slots: (string | null)[]; // ingredient IDs
+  maxSlots: number; // grimoire-upgraded
+  currentBrew: {
+    startTime: timestamp;
+    endTime: timestamp;
+    potionAttributes: number[];
+    modifiers: string[];
+  } | null;
+}
+
+interface GardenState {
+  plots: GardenPlot[];
+  maxPlots: number; // grimoire-upgraded
+  temperature: number; // -10 to 10
+  humidity: number; // 0 to 10
+  light: number; // 0 to 10
+  maxTemperature: number; // grimoire-upgraded
+  maxHumidity: number; // grimoire-upgraded
+  maxLight: number; // grimoire-upgraded
+}
+
+interface GardenPlot {
+  seedId: string | null;
+  plantedAt: timestamp | null;
+  harvestAt: timestamp | null;
+}
+
+interface ActiveEffect {
+  effectType: EffectType;
+  operation: 'multiply' | 'add' | 'set';
+  value: number;
+  appliedAt: timestamp;
+  expiresAt: timestamp | null;
+  sourcePotion: string;
+}
+
+interface UsedGrimoire {
+  grimoireId: string;
+  name: string;
+  usedAt: timestamp;
+  upgradesApplied: {
+    stat: string;
+    value: number;
+  }[];
+}
+
+interface PlayerStats {
+  potionsDiscovered: number;
+  potionsBrewed: number;
+  totalGoldEarned: number;
+  adventuresCompleted: number;
+  bazaarEncountersCompleted: number;
+  grimoiresCollected: number;
+  lastDailyReset: timestamp;
+  shopRerollsToday: number;
+  lastAdventureAt: timestamp | null;
+  lastBazaarAt: timestamp | null;
+}
+```
+
+## Rate Limiting
+
+### Command Cooldowns
+```ts
+const commandCooldowns = {
+  '/brew': 0, // brewing time is the limiter
+  '/garden plant': 1000,
+  '/garden harvest': 1000,
+  '/shop list': 5000,
+  '/shop buy': 2000,
+  '/shop reroll': 10000, // + increasing cost
+  '/use-potion': 3000,
+  '/use-grimoire': 5000,
+  '/adventure start': 86400000, // 24h, effect-modifiable
+  '/bazaar start': 1800000, // 30min, effect-modifiable
+  '/story continue': 1000, // prevent spam during stories
+};
+```
+
+### Story-Specific Limits
+- Cannot start new story if one is active
+- Cannot execute most commands while story active (except view/browse)
+- Bazaar: Can exit/re-enter freely to brew potions
+- Adventures: Must complete or abandon before other actions
+
+## Database Schemas
+
+### Potions Table
+```sql
+CREATE TABLE potions (
+  id UUID PRIMARY KEY,
+  name VARCHAR(50) NOT NULL,
+  description TEXT NOT NULL,
+  flavor_text TEXT,
+  tier VARCHAR(20) NOT NULL,
+  center_vector vector(8) NOT NULL,
+  quality_threshold FLOAT NOT NULL,
+  effects JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  discovered_by VARCHAR(20)
+);
+
+CREATE INDEX ON potions USING ivfflat (center_vector vector_l2_ops);
+```
+
+### Grimoires Table
+```sql
+CREATE TABLE grimoires (
+  id UUID PRIMARY KEY,
+  name VARCHAR(100) UNIQUE NOT NULL,
+  description TEXT NOT NULL,
+  upgrades JSONB NOT NULL,
+  tier VARCHAR(20) NOT NULL,
+  lore TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Player Grimoire Library Table
+```sql
+CREATE TABLE player_grimoire_library (
+  player_id VARCHAR(20) NOT NULL,
+  grimoire_id UUID NOT NULL,
+  used_at TIMESTAMP DEFAULT NOW(),
+  upgrades_applied JSONB NOT NULL,
+  PRIMARY KEY (player_id, grimoire_id)
+);
+```
+
+### Adventures Table
+```sql
+CREATE TABLE adventures (
+  id UUID PRIMARY KEY,
+  player_id VARCHAR(20) NOT NULL,
+  difficulty VARCHAR(20) NOT NULL,
+  started_at TIMESTAMP DEFAULT NOW(),
+  completed_at TIMESTAMP,
+  current_cycle INTEGER DEFAULT 0,
+  max_cycles INTEGER DEFAULT 10,
+  conversation_history JSONB NOT NULL,
+  items_used JSONB NOT NULL,
+  cycle_scores JSONB NOT NULL,
+  complete BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX ON adventures (player_id, complete);
+```
+
+### Bazaar Encounters Table
+```sql
+CREATE TABLE bazaar_encounters (
+  id UUID PRIMARY KEY,
+  player_id VARCHAR(20) NOT NULL,
+  customer_id UUID,
+  started_at TIMESTAMP DEFAULT NOW(),
+  completed_at TIMESTAMP,
+  customer_need TEXT NOT NULL,
+  customer_description TEXT NOT NULL,
+  conversation_history JSONB NOT NULL,
+  potion_offered UUID,
+  skill_score INTEGER,
+  complete BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX ON bazaar_encounters (player_id, complete);
+```
+
+### Bazaar Customers Table
+```sql
+CREATE TABLE bazaar_customers (
+  id UUID PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT NOT NULL,
+  personality_traits JSONB NOT NULL,
+  past_interactions JSONB NOT NULL,
+  first_seen TIMESTAMP DEFAULT NOW(),
+  last_seen TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Bazaar Ratings Table
+```sql
+CREATE TABLE bazaar_ratings (
+  player_id VARCHAR(20) PRIMARY KEY,
+  rating INTEGER DEFAULT 50,
+  successful_serves INTEGER DEFAULT 0,
+  failed_serves INTEGER DEFAULT 0,
+  customers_declined INTEGER DEFAULT 0
+);
+```
+
+## Code Organization
+
+### Module Structure
+```
+src/
+├── game/
+│   ├── potion/
+│   │   ├── attributes.ts
+│   │   ├── discovery.ts
+│   │   ├── generation.ts
+│   │   ├── validation.ts
+│   │   └── templates.ts
+│   ├── brewing/
+│   │   ├── cauldron.ts
+│   │   ├── timer.ts
+│   │   └── process.ts
+│   ├── garden/
+│   │   ├── environment.ts
+│   │   ├── planting.ts
+│   │   └── growth.ts
+│   ├── effects/
+│   │   ├── types.ts
+│   │   ├── application.ts
+│   │   ├── calculation.ts
+│   │   └── overdose.ts
+│   ├── grimoires/
+│   │   ├── usage.ts
+│   │   ├── library.ts
+│   │   └── validation.ts
+│   ├── stories/
+│   │   ├── adventures/
+│   │   │   ├── generation.ts
+│   │   │   ├── flow.ts
+│   │   │   ├── scoring.ts
+│   │   │   └── rewards.ts
+│   │   ├── bazaar/
+│   │   │   ├── customers.ts
+│   │   │   ├── generation.ts
+│   │   │   ├── rating.ts
+│   │   │   └── rewards.ts
+│   │   ├── state.ts
+│   │   └── validation.ts
+│   ├── shop/
+│   │   ├── listings.ts
+│   │   ├── browsing.ts
+│   │   └── transactions.ts
+│   └── economy/
+│       ├── gold.ts
+│       └── inventory.ts
+├── db/
+│   ├── models/
+│   └── queries/
+└── commands/
+```
+
+### Key Principles
+1. **Story state blocking**: Check `activeStory` before most operations
+2. **Grimoire-only upgrades**: Never allow effects to modify max slots
+3. **AI validation**: Always validate, always have fallback
+4. **Timestamp-based events**: Time-based systems continue during stories
+5. **Skill-based rewards**: Higher skill = better rewards, exponentially
+
+## Testing Considerations
+
+### Critical Test Cases
+1. **Story Blocking**: Verify commands blocked during active story
+2. **Grimoire Usage**: One-per-name enforcement, library tracking
+3. **Skill Calculation**: Multi-criteria averaging for adventures
+4. **Customer Memory**: Summary generation and retrieval
+5. **Bazaar Rating**: Proper rating adjustments and effects
+6. **Reward Tiers**: 90+ skill actually gets grimoires
+7. **Effect Restrictions**: No slot-modifying effects in potions
+8. **Story Persistence**: Save/load adventure state correctly
+9. **Bazaar Exit/Re-enter**: Customer state preserved
+10. **Daily Difficulty**: Same adventure difficulty for all players
+
+### Edge Cases
+- Grimoire with same name used twice (should fail)
+- Story active when brew completes (should complete normally)
+- Customer returns after many interactions (history still accessible)
+- Player abandons adventure mid-cycle (scores recorded up to that point)
+- Bazaar customer decline spam (rating drops significantly)
+- 100% skill score with trivial difficulty (still low rewards)
+- Grimoire sold then bought back by same player (can use again)
+
+## Future Expansion Points
+
+- Mana system integration (grimoire upgrades, effect costs)
+- Guild/social systems (group adventures)
+- Seasonal events (special grimoires, limited-time stories)
+- Achievement system (grimoire rewards)
+- PvP bazaar competition (shared customers)
+- Story difficulty tiers players can choose
+- Repeatable adventures with different scenarios
+- Customer relationship levels (regular customers give bonuses)
+
+All new features should integrate with existing systems (especially grimoires and stories).

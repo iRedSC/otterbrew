@@ -1,0 +1,101 @@
+---
+description: Tech stack and formatting
+alwaysApply: true
+---
+
+
+## Tech Stack
+- Runtime: Bun
+- Language: TypeScript (strict mode)
+- Database: PostgreSQL with Drizzle ORM
+- Discord: discord.js v14+
+- AI: OpenAI API
+
+## Environment Variables
+Required vars in `.env`:
+- `BOT_TOKEN` - Discord bot token
+- `CLIENT_ID` - Discord application client ID
+- `DATABASE_URL` - PostgreSQL connection string
+
+Never hardcode these values. Use `process.env.VAR_NAME` with runtime validation.
+
+## TypeScript Standards
+- Use strict mode in `tsconfig.json`
+- Prefer `interface` over `type` for object shapes
+- Use explicit return types for functions
+- Avoid `any` - use `unknown` and type guards instead
+- Enable `noUncheckedIndexedAccess` for array safety
+
+## Code Style
+- Use named exports, not default exports
+- Async functions: prefer `async/await` over `.then()`
+- Error handling: wrap Discord API calls in try/catch
+- File naming: kebab-case (e.g., `potion-service.ts`)
+- Max line length: 80 characters (Prettier enforced)
+
+## Database (Drizzle)
+- Schema files in `src/db/schema/`
+- Use `drizzle-kit` for migrations
+- Define schemas with proper indexes for query performance
+- Use transactions for multi-step operations
+- Prefer prepared statements for repeated queries
+- Define foreign keys and relations explicitly
+- Use appropriate column types (serial, text, timestamp, etc.)
+
+## Discord.js
+- Use interaction-based commands (slash commands), not message commands
+- Implement proper permission checks before command execution
+- Handle interaction responses within 3 seconds or use `deferReply()`
+- Use embeds for rich potion display
+- Structure:
+  - Commands in `src/commands/`
+  - Each command exports `{ data, execute }`
+  - Use `CommandInteraction` type
+
+## OpenAI Integration
+- Use streaming where appropriate to reduce perceived latency
+- Implement retry logic with exponential backoff
+- Cache responses when possible to reduce API costs
+- Set reasonable token limits for potion generation
+- Handle rate limits gracefully
+
+## Project Structure
+src/
+  commands/        # Slash command definitions
+  db/
+    schema/        # Drizzle schemas
+    index.ts       # DB connection
+  services/        # Business logic (potion, openai)
+  utils/           # Helpers, validators
+  index.ts         # Entry point
+
+## Deployment (Docker/Dokploy)
+- This project runs on Dokploy with Docker
+- All migration commands must work in the container, not just locally
+- Drizzle migrations (`drizzle-kit generate`, `drizzle-kit migrate`) must be
+  executable from within the Docker container
+- Dockerfile should include all necessary dependencies for running migrations
+- Database connection strings must be accessible from within the container
+- Ensure `drizzle-kit` and database drivers are available in the container
+- Migration scripts should be designed to run in containerized environments
+- Test migrations in Docker before deploying to Dokploy
+
+## Error Handling
+- Never crash the bot - catch all errors at top level
+- Log errors with context (user ID, command, timestamp)
+- Send user-friendly error messages in Discord
+- Don't expose stack traces to users
+
+## Performance
+- Use connection pooling for database
+- Batch database operations where possible
+- Implement caching for frequently accessed data
+- Monitor OpenAI token usage
+- Use Discord's bulk operations for mass updates
+
+## Security
+- Validate all user inputs before database operations
+- Sanitize content before sending to OpenAI
+- Use parameterized queries (Drizzle does this by default)
+- Rate limit expensive operations per user
+- Never log sensitive tokens or API keys

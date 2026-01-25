@@ -5,7 +5,8 @@
       "@definitions/*": ["src/types/*"],
       "@bot/*": ["src/app/bot/*"],
       "@db": ["src/app/db/db.ts"],
-      "@queries/*": ["src/app/db/generated/*"]
+      "@queries/*": ["src/app/db/generated/*"],
+      "@services/*": ["src/app/services/*"]
     },
 
     // Environment setup & latest features

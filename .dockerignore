@@ -1,0 +1,45 @@
+# Dependencies
+node_modules
+# Note: bun.lock is needed for reproducible builds, so we include it
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build outputs
+out
+dist
+*.tgz
+
+# Logs
+logs
+*.log
+
+# IDE
+.cursor
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Coverage
+coverage
+*.lcov
+
+# Cache
+.cache
+*.tsbuildinfo
+.eslintcache
+
+# Documentation (optional, but reduces image size)
+README.md
+*.md
