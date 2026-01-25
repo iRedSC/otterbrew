@@ -10,11 +10,20 @@ export const command = {
     .setName("stats")
     .setDescription("View your player statistics"),
   execute: async (interaction: ChatInputCommandInteraction): Promise<void> => {
-    await interaction.deferReply();
-
+    console.log(`[Stats] Command started for user ${interaction.user.id}`);
+    
     try {
-      const user = await getOrCreateUser(interaction.user.id);
+      console.log(`[Stats] Deferring reply...`);
+      await interaction.deferReply();
+      console.log(`[Stats] Reply deferred, fetching user data...`);
 
+      const user = await getOrCreateUser(interaction.user.id);
+      console.log(`[Stats] User data retrieved:`, {
+        discordId: user.discordId,
+        gold: user.gold,
+      });
+
+      console.log(`[Stats] Building embed...`);
       const embed = new EmbedBuilder()
         .setTitle(`${interaction.user.username}'s Statistics`)
         .setColor(0x5865f2)
@@ -60,12 +69,22 @@ export const command = {
           text: `Player since ${new Date(user.createdAt).toLocaleDateString()}`,
         });
 
+      console.log(`[Stats] Sending editReply...`);
       await interaction.editReply({ embeds: [embed] });
+      console.log(`[Stats] Reply sent successfully`);
     } catch (error) {
-      console.error("Error in /stats command:", error);
-      await interaction.editReply({
-        content: "❌ An error occurred while fetching your statistics.",
-      });
+      console.error("[Stats] Error in /stats command:", error);
+      if (error instanceof Error) {
+        console.error("[Stats] Error message:", error.message);
+        console.error("[Stats] Error stack:", error.stack);
+      }
+      try {
+        await interaction.editReply({
+          content: "❌ An error occurred while fetching your statistics.",
+        });
+      } catch (replyError) {
+        console.error("[Stats] Failed to send error reply:", replyError);
+      }
     }
   },
 };

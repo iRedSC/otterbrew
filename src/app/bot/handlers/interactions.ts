@@ -39,18 +39,26 @@ await Promise.all(
 export async function handleInteraction(
   interaction: Interaction,
 ): Promise<void> {
+  console.log(
+    `[Interaction] Received interaction: ${interaction.type} from user ${interaction.user?.id}`,
+  );
+
   if (interaction.type !== InteractionType.ApplicationCommand) {
+    console.log(`[Interaction] Not an application command, ignoring`);
     return;
   }
 
   if (!interaction.isChatInputCommand()) {
+    console.log(`[Interaction] Not a chat input command, ignoring`);
     return;
   }
+
+  console.log(`[Interaction] Processing command: ${interaction.commandName}`);
 
   const command = commands.get(interaction.commandName);
 
   if (!command) {
-    console.error(`No command matching ${interaction.commandName} was found.`);
+    console.error(`[Interaction] No command matching ${interaction.commandName} was found.`);
     await interaction.reply({
       content: "❌ This command is not available.",
       flags: MessageFlags.Ephemeral,
@@ -58,20 +66,31 @@ export async function handleInteraction(
     return;
   }
 
+  console.log(`[Interaction] Executing command: ${interaction.commandName}`);
   try {
     await command.execute(interaction);
+    console.log(`[Interaction] Command ${interaction.commandName} completed successfully`);
   } catch (error) {
-    console.error(`Error executing ${interaction.commandName}:`, error);
+    console.error(`[Interaction] Error executing ${interaction.commandName}:`, error);
+    if (error instanceof Error) {
+      console.error(`[Interaction] Error stack:`, error.stack);
+    }
     const replyOptions = {
       content:
         "❌ An error occurred while executing this command. Please try again later.",
       flags: MessageFlags.Ephemeral,
     };
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(replyOptions);
-    } else {
-      await interaction.reply(replyOptions);
+    try {
+      if (interaction.replied || interaction.deferred) {
+        console.log(`[Interaction] Sending followUp for ${interaction.commandName}`);
+        await interaction.followUp(replyOptions);
+      } else {
+        console.log(`[Interaction] Sending reply for ${interaction.commandName}`);
+        await interaction.reply(replyOptions);
+      }
+    } catch (replyError) {
+      console.error(`[Interaction] Failed to send error reply:`, replyError);
     }
   }
 }
