@@ -11,7 +11,7 @@ if (!databaseUrl) {
 
 console.log("[DB] Creating postgres client...");
 export const postgresClient = postgres(databaseUrl, {
-  ssl: "require",
+  ssl: true, // Changed from "require" to true - postgres library expects boolean or object
   connect_timeout: 10, // 10 second connection timeout
   idle_timeout: 20, // 20 second idle timeout
   max_lifetime: 60 * 30, // 30 minutes max lifetime
