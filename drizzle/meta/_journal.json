@@ -8,6 +8,13 @@
       "when": 1769363540111,
       "tag": "0000_aspiring_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1769385499050,
+      "tag": "0001_whole_vermin",
+      "breakpoints": true
     }
   ]
 }

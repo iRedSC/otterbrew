@@ -63,6 +63,11 @@ export const command = {
             value: user.grimoiresCollected.toString(),
             inline: true,
           },
+          {
+            name: "🎒 Inventory Slots",
+            value: `${user.maxInventorySlots} max`,
+            inline: true,
+          },
         )
         .setTimestamp()
         .setFooter({

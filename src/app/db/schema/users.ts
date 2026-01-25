@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   discordId: text("discord_id").primaryKey(),
@@ -11,9 +11,17 @@ export const users = pgTable("users", {
     .notNull()
     .default(0),
   grimoiresCollected: integer("grimoires_collected").notNull().default(0),
+  maxInventorySlots: integer("max_inventory_slots").notNull().default(25),
+  inventory: jsonb("inventory").notNull().default("[]"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export interface InventorySlot {
+  itemType: "potion" | "ingredient" | "seed" | "grimoire";
+  itemId: string;
+  quantity: number;
+}
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
