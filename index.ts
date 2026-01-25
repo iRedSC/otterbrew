@@ -1,5 +1,5 @@
 import { client } from "@bot/client";
-import { db } from "@db";
+import { postgresClient } from "@db";
 import { handleInteraction } from "@bot/handlers/interactions";
 
 // Validate required environment variables
@@ -18,7 +18,7 @@ client.on("interactionCreate", handleInteraction);
 client.login(process.env.BOT_TOKEN);
 
 process.on("beforeExit", async () => {
-  await db.end();
+  await postgresClient.end();
 });
 
 // async function main() {

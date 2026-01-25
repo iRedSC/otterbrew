@@ -5,22 +5,31 @@ import { users, type User } from "../db/schema/users.js";
 export async function getOrCreateUser(
   discordId: string,
 ): Promise<User> {
-  const existingUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.discordId, discordId))
-    .limit(1);
+  try {
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.discordId, discordId))
+      .limit(1);
 
-  if (existingUser[0]) {
-    return existingUser[0];
+    if (existingUser[0]) {
+      return existingUser[0];
+    }
+
+    const newUser = await db
+      .insert(users)
+      .values({ discordId })
+      .returning();
+
+    if (!newUser[0]) {
+      throw new Error("Failed to create user - no user returned");
+    }
+
+    return newUser[0];
+  } catch (error) {
+    console.error("Error in getOrCreateUser:", error);
+    throw error;
   }
-
-  const newUser = await db
-    .insert(users)
-    .values({ discordId })
-    .returning();
-
-  return newUser[0]!;
 }
 
 export async function updateUserGold(
