@@ -7,6 +7,7 @@
     "start": "bun run index.ts",
     "setup": "bun run register_commands.ts",
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun run migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },

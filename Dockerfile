@@ -9,7 +9,7 @@ RUN bun install --frozen-lockfile
 # Copy source code and config files
 COPY tsconfig.json drizzle.config.ts ./
 COPY src ./src
-COPY index.ts register_commands.ts ./
+COPY index.ts register_commands.ts migrate.ts ./
 
 # Copy drizzle migrations directory (needed for running migrations)
 COPY drizzle ./drizzle
