@@ -8,12 +8,23 @@ export async function getOrCreateUser(
   console.log(`[UserService] getOrCreateUser called for discordId: ${discordId}`);
   try {
     console.log(`[UserService] Querying database for existing user...`);
-    const existingUser = await db
+    console.log(`[UserService] Starting SELECT query at ${new Date().toISOString()}`);
+    
+    // Add timeout wrapper
+    const queryPromise = db
       .select()
       .from(users)
       .where(eq(users.discordId, discordId))
       .limit(1);
-    console.log(`[UserService] Query completed, found ${existingUser.length} user(s)`);
+    
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Database query timeout after 15 seconds"));
+      }, 15000);
+    });
+    
+    const existingUser = await Promise.race([queryPromise, timeoutPromise]);
+    console.log(`[UserService] Query completed at ${new Date().toISOString()}, found ${existingUser.length} user(s)`);
 
     if (existingUser[0]) {
       console.log(`[UserService] Returning existing user:`, {

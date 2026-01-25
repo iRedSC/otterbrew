@@ -1,5 +1,6 @@
 import { client } from "@bot/client";
-import { postgresClient } from "@db";
+import { postgresClient, db } from "@db";
+import { sql } from "drizzle-orm";
 import { handleInteraction } from "@bot/handlers/interactions";
 
 // Validate required environment variables
@@ -13,11 +14,37 @@ if (missingVars.length > 0) {
   process.exit(1);
 }
 
-client.on("interactionCreate", handleInteraction);
+// Test database connection before starting bot
+async function testDatabaseConnection() {
+  console.log("[Startup] Testing database connection...");
+  try {
+    const result = await db.execute(sql`SELECT 1 as test`);
+    console.log("[Startup] Database connection successful:", result);
+    return true;
+  } catch (error) {
+    console.error("[Startup] Database connection failed:", error);
+    if (error instanceof Error) {
+      console.error("[Startup] Error message:", error.message);
+      console.error("[Startup] Error stack:", error.stack);
+    }
+    return false;
+  }
+}
 
-client.login(process.env.BOT_TOKEN);
+// Start bot after database test
+testDatabaseConnection().then((connected) => {
+  if (!connected) {
+    console.error("[Startup] Failed to connect to database. Exiting...");
+    process.exit(1);
+  }
+  
+  console.log("[Startup] Starting Discord bot...");
+  client.on("interactionCreate", handleInteraction);
+  client.login(process.env.BOT_TOKEN);
+});
 
 process.on("beforeExit", async () => {
+  console.log("[Shutdown] Closing database connection...");
   await postgresClient.end();
 });
 

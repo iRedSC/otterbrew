@@ -15,6 +15,10 @@ export const postgresClient = postgres(databaseUrl, {
   connect_timeout: 10, // 10 second connection timeout
   idle_timeout: 20, // 20 second idle timeout
   max_lifetime: 60 * 30, // 30 minutes max lifetime
+  onnotice: () => {}, // Suppress notices
+  debug: (connection, query, parameters) => {
+    console.log(`[DB] Query: ${query}`);
+  },
 });
 
 console.log("[DB] Creating Drizzle instance...");
