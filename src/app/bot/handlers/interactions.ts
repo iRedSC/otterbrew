@@ -2,6 +2,7 @@ import {
   type Interaction,
   InteractionType,
   type ChatInputCommandInteraction,
+  MessageFlags,
 } from "discord.js";
 import { readdirSync } from "fs";
 import path from "path";
@@ -52,7 +53,7 @@ export async function handleInteraction(
     console.error(`No command matching ${interaction.commandName} was found.`);
     await interaction.reply({
       content: "❌ This command is not available.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -64,7 +65,7 @@ export async function handleInteraction(
     const replyOptions = {
       content:
         "❌ An error occurred while executing this command. Please try again later.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     };
 
     if (interaction.replied || interaction.deferred) {
