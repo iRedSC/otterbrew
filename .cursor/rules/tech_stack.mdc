@@ -19,7 +19,7 @@ Required vars in `.env`:
 - `OPENAI_API_KEY` - OpenAI api key.
 
 Optional vars:
-- `USE_REASONING_MODEL` - Set to "true" or "1" to use o1-mini reasoning model with limited reasoning effort (default: false, uses gpt-4o-mini)
+- `USE_REASONING_MODEL` - Set to "true" or "1" to use o3-mini reasoning model with limited reasoning effort (default: false, uses gpt-4o-mini)
 
 Never hardcode these values. Use `process.env.VAR_NAME` with runtime validation.
 

@@ -177,9 +177,9 @@ async function callOpenAI(prompt: string): Promise<string> {
 
   const response = await retryWithBackoff(async () => {
     if (useReasoningModel) {
-      // Use o1-mini with low reasoning effort for limited reasoning
+      // Use o3-mini with low reasoning effort for limited reasoning
       const completion = await client.chat.completions.create({
-        model: "o1-mini",
+        model: "o3-mini",
         messages: [
           {
             role: "system",
