@@ -171,31 +171,62 @@ function validateSpecialIngredientOutput(
 
 async function callOpenAI(prompt: string): Promise<string> {
   const client = getOpenAIClient();
+  const useReasoningModel =
+    process.env.USE_REASONING_MODEL === "true" ||
+    process.env.USE_REASONING_MODEL === "1";
 
   const response = await retryWithBackoff(async () => {
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful assistant that generates game content. Always respond with valid JSON only, no additional text.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.9,
-      max_tokens: 500,
-    });
+    if (useReasoningModel) {
+      // Use o1-mini with low reasoning effort for limited reasoning
+      const completion = await client.chat.completions.create({
+        model: "o1-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant that generates game content. Always respond with valid JSON only, no additional text.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        reasoning_effort: "low", // Limited reasoning time
+        max_completion_tokens: 500, // Limit final output tokens
+      });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No content in OpenAI response");
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No content in OpenAI response");
+      }
+
+      return content;
+    } else {
+      // Standard model (gpt-4o-mini)
+      const completion = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant that generates game content. Always respond with valid JSON only, no additional text.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.9,
+        max_tokens: 500,
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No content in OpenAI response");
+      }
+
+      return content;
     }
-
-    return content;
   });
 
   return response;
