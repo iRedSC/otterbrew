@@ -3,9 +3,6 @@ import {
   type ChatInputCommandInteraction,
   type ButtonInteraction,
   EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   MessageFlags,
 } from "discord.js";
 import { getOrCreateUser } from "../../services/user-service.js";
@@ -19,6 +16,11 @@ import {
   addLongField,
   getItemDisplayName,
 } from "../utils/embed-helpers.js";
+import {
+  handlePaginationButton,
+  createPaginationMessage,
+  type PaginationConfig,
+} from "../utils/pagination.js";
 
 type PageType = "ingredients" | "potions" | "modifiers" | "seeds";
 
@@ -30,31 +32,66 @@ interface GroupedItems {
   modifier: Array<{ details: ItemDetails | null; quantity: number }>;
 }
 
-function buildPaginationButtons(
+/**
+ * Groups inventory items by type and stacks duplicates.
+ */
+async function groupInventoryItems(
   userId: string,
-  currentPage: PageType,
-  availablePages: PageType[],
-): ActionRowBuilder<ButtonBuilder> {
-  const row = new ActionRowBuilder<ButtonBuilder>();
+): Promise<{ itemsByType: GroupedItems; user: Awaited<ReturnType<typeof getOrCreateUser>>; inventory: InventorySlot[] }> {
+  const user = await getOrCreateUser(userId);
+  const inventory = parseInventory(user.inventory);
+  const itemsWithDetails = await getInventoryItems(inventory);
 
-  const pageLabels: Record<PageType, string> = {
-    ingredients: "🌿 Ingredients",
-    potions: "🧪 Potions",
-    modifiers: "✨ Modifiers",
-    seeds: "🌱 Seeds",
+  // Group items by name and rarity to stack duplicates
+  const stackedItems = new Map<
+    string,
+    {
+      details: ItemDetails | null;
+      quantity: number;
+      type: "potion" | "ingredient" | "seed" | "grimoire" | "modifier";
+    }
+  >();
+
+  itemsWithDetails.forEach((item) => {
+    const name = item.details?.name || `Unknown ${item.itemType} (${item.itemId})`;
+    const displayType =
+      item.details?.type === "potion_modifier"
+        ? "modifier"
+        : item.itemType;
+    const rarity = item.details?.rarity || "";
+    const key = `${displayType}:${name}:${rarity}`;
+
+    const existing = stackedItems.get(key);
+    if (existing) {
+      existing.quantity += item.quantity;
+    } else {
+      stackedItems.set(key, {
+        details: item.details,
+        quantity: item.quantity,
+        type: displayType,
+      });
+    }
+  });
+
+  // Group stacked items by type
+  const itemsByType: GroupedItems = {
+    potion: [],
+    ingredient: [],
+    seed: [],
+    grimoire: [],
+    modifier: [],
   };
 
-  for (const page of availablePages) {
-    const isActive = page === currentPage;
-    const button = new ButtonBuilder()
-      .setCustomId(`inventory:${userId}:${page}`)
-      .setLabel(pageLabels[page])
-      .setStyle(isActive ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(isActive);
-    row.addComponents(button);
-  }
+  stackedItems.forEach((item) => {
+    if (itemsByType[item.type]) {
+      itemsByType[item.type].push({
+        details: item.details,
+        quantity: item.quantity,
+      });
+    }
+  });
 
-  return row;
+  return { itemsByType, user, inventory };
 }
 
 function buildPageEmbed(
@@ -110,8 +147,6 @@ function buildPageEmbed(
   } else {
     let itemList: string;
     let fieldName: string;
-    let showRarity = false;
-    let showEmoji = true;
 
     switch (pageType) {
       case "ingredients":
@@ -137,7 +172,6 @@ function buildPageEmbed(
           )
           .join("\n");
         fieldName = "✨ Potion Modifiers";
-        showRarity = true;
         break;
       case "seeds":
         itemList = items
@@ -146,7 +180,6 @@ function buildPageEmbed(
           )
           .join("\n");
         fieldName = "🌱 Seeds";
-        showRarity = true;
         break;
     }
 
@@ -156,96 +189,74 @@ function buildPageEmbed(
   return embed;
 }
 
+/**
+ * Creates a pagination configuration for inventory pages.
+ */
+function createInventoryPaginationConfig(
+  userId: string,
+  itemsByType: GroupedItems,
+  user: Awaited<ReturnType<typeof getOrCreateUser>>,
+  inventory: InventorySlot[],
+): PaginationConfig<PageType> {
+  const pageLabels: Record<PageType, string> = {
+    ingredients: "🌿 Ingredients",
+    potions: "🧪 Potions",
+    modifiers: "✨ Modifiers",
+    seeds: "🌱 Seeds",
+  };
+
+  return {
+    handlerId: "inventory",
+    pageLabels,
+    buildPageEmbed: (page: PageType) =>
+      buildPageEmbed(page, itemsByType, user, inventory),
+    getAvailablePages: (): PageType[] => {
+      const availablePages: PageType[] = [];
+      if (itemsByType.ingredient.length > 0) availablePages.push("ingredients");
+      if (itemsByType.potion.length > 0) availablePages.push("potions");
+      if (itemsByType.modifier.length > 0) availablePages.push("modifiers");
+      if (itemsByType.seed.length > 0) availablePages.push("seeds");
+      // If no items, show ingredients page by default
+      if (availablePages.length === 0) {
+        availablePages.push("ingredients");
+      }
+      return availablePages;
+    },
+    getDefaultPage: (availablePages: PageType[]): PageType => {
+      if (availablePages.length > 0) {
+        return availablePages[0]!;
+      }
+      return "ingredients";
+    },
+    isValidPage: (page: string): page is PageType => {
+      return ["ingredients", "potions", "modifiers", "seeds"].includes(page);
+    },
+  };
+}
+
 async function handleInventoryButton(
   interaction: ButtonInteraction,
 ): Promise<void> {
   const customIdParts = interaction.customId.split(":");
   const userId = customIdParts[1];
-  const pageType = customIdParts[2] as PageType;
 
-  // Verify the button belongs to the user who clicked it
-  if (interaction.user.id !== userId) {
+  if (!userId) {
     await interaction.reply({
-      content: "❌ This button is not for you.",
+      content: "❌ Invalid button format.",
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   try {
-    await interaction.deferUpdate();
-
-    const user = await getOrCreateUser(userId);
-    const inventory = parseInventory(user.inventory);
-    const itemsWithDetails = await getInventoryItems(inventory);
-
-    // Group items by type
-    const stackedItems = new Map<
-      string,
-      {
-        details: ItemDetails | null;
-        quantity: number;
-        type: "potion" | "ingredient" | "seed" | "grimoire" | "modifier";
-      }
-    >();
-
-    itemsWithDetails.forEach((item) => {
-      const name = item.details?.name || `Unknown ${item.itemType} (${item.itemId})`;
-      const displayType =
-        item.details?.type === "potion_modifier"
-          ? "modifier"
-          : item.itemType;
-      const rarity = item.details?.rarity || "";
-      const key = `${displayType}:${name}:${rarity}`;
-
-      const existing = stackedItems.get(key);
-      if (existing) {
-        existing.quantity += item.quantity;
-      } else {
-        stackedItems.set(key, {
-          details: item.details,
-          quantity: item.quantity,
-          type: displayType,
-        });
-      }
-    });
-
-    const itemsByType: GroupedItems = {
-      potion: [],
-      ingredient: [],
-      seed: [],
-      grimoire: [],
-      modifier: [],
-    };
-
-    stackedItems.forEach((item) => {
-      if (itemsByType[item.type]) {
-        itemsByType[item.type].push({
-          details: item.details,
-          quantity: item.quantity,
-        });
-      }
-    });
-
-    // Determine available pages (only show pages that have items)
-    const availablePages: PageType[] = [];
-    if (itemsByType.ingredient.length > 0) availablePages.push("ingredients");
-    if (itemsByType.potion.length > 0) availablePages.push("potions");
-    if (itemsByType.modifier.length > 0) availablePages.push("modifiers");
-    if (itemsByType.seed.length > 0) availablePages.push("seeds");
-
-    // If no items, show ingredients page by default
-    if (availablePages.length === 0) {
-      availablePages.push("ingredients");
-    }
-
-    const embed = buildPageEmbed(pageType, itemsByType, user, inventory);
-    const buttons = buildPaginationButtons(userId, pageType, availablePages);
-
-    await interaction.editReply({
-      embeds: [embed],
-      components: [buttons],
-    });
+    const { itemsByType, user, inventory } = await groupInventoryItems(userId);
+    const config = createInventoryPaginationConfig(
+      userId,
+      itemsByType,
+      user,
+      inventory,
+    );
+    await handlePaginationButton(interaction, config);
   } catch (error) {
     console.error("[Inventory] Error handling button:", error);
     if (error instanceof Error) {
@@ -253,9 +264,16 @@ async function handleInventoryButton(
       console.error("[Inventory] Error stack:", error.stack);
     }
     try {
-      await interaction.editReply({
-        content: "❌ An error occurred while updating the inventory page.",
-      });
+      if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({
+          content: "❌ An error occurred while updating the inventory page.",
+        });
+      } else {
+        await interaction.reply({
+          content: "❌ An error occurred while updating the inventory page.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
     } catch (replyError) {
       console.error("[Inventory] Failed to send error reply:", replyError);
     }
@@ -296,123 +314,46 @@ export const command = {
       }
       console.log(`[Inventory] Fetching user data...`);
 
-      const user = await getOrCreateUser(interaction.user.id);
+      // Group inventory items (this also fetches user and parses inventory)
+      const { itemsByType, user, inventory } = await groupInventoryItems(
+        interaction.user.id,
+      );
       console.log(`[Inventory] User data retrieved:`, {
         discordId: user.discordId,
         maxInventorySlots: user.maxInventorySlots,
         inventoryType: typeof user.inventory,
-        inventoryValue: JSON.stringify(user.inventory),
-        inventoryLength: Array.isArray(user.inventory)
-          ? user.inventory.length
-          : 0,
+        inventoryLength: inventory.length,
       });
 
-      const inventory = parseInventory(user.inventory);
-      console.log(`[Inventory] Parsed inventory:`, {
-        length: inventory.length,
-        items: JSON.stringify(inventory, null, 2),
-      });
-
-      // Fetch item details
-      const itemsWithDetails = await getInventoryItems(inventory);
-      console.log(`[Inventory] Items with details:`, {
-        count: itemsWithDetails.length,
-        items: JSON.stringify(
-          itemsWithDetails.map((item) => ({
-            itemType: item.itemType,
-            itemId: item.itemId,
-            quantity: item.quantity,
-            hasDetails: !!item.details,
-            detailsName: item.details?.name || "null",
-          })),
-          null,
-          2,
-        ),
-      });
-
-      // Group items by name and rarity to stack duplicates
-      const stackedItems = new Map<
-        string,
-        {
-          details: ItemDetails | null;
-          quantity: number;
-          type: "potion" | "ingredient" | "seed" | "grimoire" | "modifier";
-        }
-      >();
-
-      itemsWithDetails.forEach((item) => {
-        const name = item.details?.name || `Unknown ${item.itemType} (${item.itemId})`;
-        const displayType =
-          item.details?.type === "potion_modifier"
-            ? "modifier"
-            : item.itemType;
-        const rarity = item.details?.rarity || "";
-        const key = `${displayType}:${name}:${rarity}`;
-
-        const existing = stackedItems.get(key);
-        if (existing) {
-          existing.quantity += item.quantity;
-        } else {
-          stackedItems.set(key, {
-            details: item.details,
-            quantity: item.quantity,
-            type: displayType,
-          });
-        }
-      });
-
-      // Group stacked items by type
-      const itemsByType: GroupedItems = {
-        potion: [],
-        ingredient: [],
-        seed: [],
-        grimoire: [],
-        modifier: [],
-      };
-
-      stackedItems.forEach((item) => {
-        if (itemsByType[item.type]) {
-          itemsByType[item.type].push({
-            details: item.details,
-            quantity: item.quantity,
-          });
-        }
-      });
-
-      // Determine available pages (only show pages that have items)
-      const availablePages: PageType[] = [];
-      if (itemsByType.ingredient.length > 0) availablePages.push("ingredients");
-      if (itemsByType.potion.length > 0) availablePages.push("potions");
-      if (itemsByType.modifier.length > 0) availablePages.push("modifiers");
-      if (itemsByType.seed.length > 0) availablePages.push("seeds");
-
-      // Default to first available page, or ingredients if empty
-      const defaultPage: PageType =
-        availablePages.length > 0 ? availablePages[0] : "ingredients";
-
-      console.log(`[Inventory] Building embed for page: ${defaultPage}`);
-      const embed = buildPageEmbed(defaultPage, itemsByType, user, inventory);
-      const buttons = buildPaginationButtons(
+      // Create pagination configuration
+      const config = createInventoryPaginationConfig(
         interaction.user.id,
-        defaultPage,
-        availablePages.length > 0 ? availablePages : ["ingredients"],
+        itemsByType,
+        user,
+        inventory,
+      );
+
+      // Create paginated message
+      const { embed, components } = await createPaginationMessage(
+        interaction.user.id,
+        config,
       );
 
       console.log(`[Inventory] Sending response...`);
       if (deferred && !interaction.replied) {
         await interaction.editReply({
           embeds: [embed],
-          components: availablePages.length > 1 ? [buttons] : [],
+          components,
         });
       } else if (interaction.replied) {
         await interaction.followUp({
           embeds: [embed],
-          components: availablePages.length > 1 ? [buttons] : [],
+          components,
         });
       } else {
         await interaction.reply({
           embeds: [embed],
-          components: availablePages.length > 1 ? [buttons] : [],
+          components,
         });
       }
       console.log(`[Inventory] Reply sent successfully`);
