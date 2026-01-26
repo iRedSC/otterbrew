@@ -1,0 +1,22 @@
+---
+alwaysApply: true
+---
+
+## Discord Embed Field Limits
+
+**CRITICAL**: Discord embed field values have a hard limit of 1024 characters. When adding potentially long text to embeds (e.g., lists of items, inventory contents), always use the `addLongField()` utility function from `src/app/bot/utils/embed-helpers.ts`.
+
+**Never** directly call `embed.addFields()` with user-generated or dynamically-sized content that could exceed 1024 characters. This will cause runtime validation errors.
+
+**Example:**
+```typescript
+import { addLongField } from "../../utils/embed-helpers.js";
+
+// ✅ Correct - handles long content automatically
+addLongField(embed, "📦 Items", itemList);
+
+// ❌ Wrong - will crash if itemList exceeds 1024 chars
+embed.addFields({ name: "📦 Items", value: itemList });
+```
+
+This applies to any command that displays lists, inventories, or other variable-length content in embed fields.

@@ -11,6 +11,7 @@ import { ingredients } from "../../../db/schema/ingredients.js";
 import { potionModifiers } from "../../../db/schema/potion-modifiers.js";
 import type { RarityTier } from "../../../db/schema/seeds.js";
 import type { IngredientAttributes } from "../../../db/schema/ingredients.js";
+import { addLongField } from "../../utils/embed-helpers.js";
 
 const RARITY_TIERS: RarityTier[] = [
   "basic",
@@ -266,11 +267,8 @@ export async function handleGiverandom(
           return `• **${item.name}** (${item.type})${rarityText}`;
         })
         .join("\n");
-      embed.addFields({
-        name: "📦 Items Added",
-        value: itemList,
-        inline: false,
-      });
+
+      addLongField(embed, "📦 Items Added", itemList);
     }
 
     await interaction.editReply({ embeds: [embed] });

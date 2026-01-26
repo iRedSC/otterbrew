@@ -6,6 +6,7 @@ import {
 import { getOrCreateUser } from "../../services/user-service.js";
 import { getInventoryItems } from "../../services/item-service.js";
 import type { InventorySlot } from "../../db/schema/users.js";
+import { addLongField } from "../utils/embed-helpers.js";
 
 export const command = {
   data: new SlashCommandBuilder()
@@ -178,36 +179,9 @@ export const command = {
           itemDescriptions.push(`**📚 Grimoires**\n${grimoireList}`);
         }
 
-        // Split into multiple fields if needed (Discord embed field limit is 1024 chars)
-        const maxFieldLength = 1000;
-        let currentField = "";
-        let fieldCount = 0;
-
-        itemDescriptions.forEach((section) => {
-          if (
-            currentField.length + section.length + 2 > maxFieldLength &&
-            currentField.length > 0
-          ) {
-            embed.addFields({
-              name: fieldCount === 0 ? "📋 Items" : "\u200b",
-              value: currentField.trim(),
-              inline: false,
-            });
-            currentField = section;
-            fieldCount++;
-          } else {
-            currentField +=
-              (currentField.length > 0 ? "\n\n" : "") + section;
-          }
-        });
-
-        if (currentField.length > 0) {
-          embed.addFields({
-            name: fieldCount === 0 ? "📋 Items" : "\u200b",
-            value: currentField.trim(),
-            inline: false,
-          });
-        }
+        // Combine all item descriptions with double newlines
+        const combinedItems = itemDescriptions.join("\n\n");
+        addLongField(embed, "📋 Items", combinedItems);
       }
 
       console.log(`[Inventory] Sending editReply...`);
