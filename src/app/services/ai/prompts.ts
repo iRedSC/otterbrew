@@ -3,9 +3,9 @@ export function getSeedGenerationPrompt(): string {
 
 Generate a seed with the following properties:
 - name: A creative, fantasy-themed seed name (3-50 characters, no special chars except spaces/hyphens)
-- description: A vivid description of the seed (10-500 characters)
+- description: A vivid description of the seed (10-100 characters)
 - rarity: One of: basic, uncommon, rare, epic, legendary, mythic
-- emoji: An optional emoji that represents the seed (single emoji, max 10 chars)
+- emoji: An emoji that represents the seed (single emoji, max 10 chars)
 
 The seed should fit a fantasy alchemy theme. Be creative and unique.
 
@@ -33,7 +33,7 @@ Ingredients have 8-dimensional attributes that affect potion brewing:
 
 Generate an ingredient with:
 - name: A creative, fantasy-themed ingredient name (3-50 characters, no special chars except spaces/hyphens)
-- description: A vivid description of the ingredient (10-500 characters)
+- description: A vivid description of the ingredient (10-100 characters)
 - attributes: An object with all 8 attributes as integers (each between -100 and 100)
 - emoji: An optional emoji that represents the ingredient (single emoji, max 10 chars)
 

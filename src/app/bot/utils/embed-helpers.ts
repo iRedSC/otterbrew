@@ -3,6 +3,20 @@ import type { RarityTier } from "../../db/schema/seeds.js";
 import type { ItemDetails } from "../../services/item-service.js";
 
 /**
+ * Emoji mapping for attribute types
+ */
+const ATTRIBUTE_EMOJIS: Record<string, string> = {
+  spice: "🌶️",
+  time: "🕑",
+  fizz: "🍾",
+  zest: "✨",
+  bane: "☠️",
+  fantasy: "☁️",
+  chaos: "🌪️",
+  darkness: "🔮",
+} as const;
+
+/**
  * Discord embed field value limit is 1024 characters.
  * We use 1000 to leave a small buffer.
  */
@@ -88,6 +102,38 @@ export function getItemDisplayName(
   }
 
   return formattedName;
+}
+
+/**
+ * Emoji mapping for attribute types
+ */
+const ATTRIBUTE_EMOJIS: Record<string, string> = {
+  spice: "🌶️",
+  time: "🕑",
+  fizz: "🍾",
+  zest: "✨",
+  bane: "☠️",
+  fantasy: "☁️",
+  chaos: "🌪️",
+  darkness: "🔮",
+};
+
+/**
+ * Formats attributes object into a string with emoji prefixes.
+ * Example: { spice: 5, time: -3 } -> "🌶️5, 🕑-3"
+ *
+ * @param attributes - The attributes object with numeric values
+ * @returns Formatted string with emoji prefixes
+ */
+export function formatAttributes(
+  attributes: Record<string, number>,
+): string {
+  return Object.entries(attributes)
+    .map(([key, value]) => {
+      const emoji = ATTRIBUTE_EMOJIS[key.toLowerCase()] || key;
+      return `${emoji}${value}`;
+    })
+    .join(", ");
 }
 
 /**

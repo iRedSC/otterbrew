@@ -15,6 +15,7 @@ import {
   generateSpecialIngredient,
 } from "../../services/ai/generators.js";
 import { nameToStringId } from "../../services/item-service.js";
+import { formatAttributes } from "../utils/embed-helpers.js";
 
 async function handleGenSeed(
   interaction: ChatInputCommandInteraction,
@@ -154,9 +155,7 @@ async function handleGenIngredient(
 
     if (existing[0]) {
       const attrs = existing[0].attributes as typeof generated.attributes;
-      const attrStr = Object.entries(attrs)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(", ");
+      const attrStr = formatAttributes(attrs);
 
       const embed = new EmbedBuilder()
         .setTitle("✨ Ingredient Generated")
@@ -208,9 +207,7 @@ async function handleGenIngredient(
     }
 
     const attrs = newIngredient[0].attributes as typeof generated.attributes;
-    const attrStr = Object.entries(attrs)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(", ");
+    const attrStr = formatAttributes(attrs);
 
     const embed = new EmbedBuilder()
       .setTitle("✨ Ingredient Generated")
