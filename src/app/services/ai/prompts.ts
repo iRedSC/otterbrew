@@ -487,6 +487,20 @@ Name examples:
 
 They do not have to be objects that don't exist in the real world.
 
+DO NOT USE COMPOUND WORDS FOR THE NAME.
+Examples of bad names:
+Zestfruit
+Spiceleaf
+Timecrystal
+Fizzstone
+Baneshard
+Fantasyflower
+Chaosgem
+Darknessshard
+Lightshard
+Winter's Whisperroot
+Echoing Timeflower
+Flamebloom Nectar
 
 Return ONLY valid JSON in this exact format:
 {
