@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { users } from "./schema/users.js";
 import { seeds } from "./schema/seeds.js";
 import { ingredients } from "./schema/ingredients.js";
-import { potionModifiers } from "./schema/potion-modifiers.js";
+import { specialIngredients } from "./schema/special-ingredients.js";
 import { potions } from "./schema/potions.js";
 import { potionRecipes } from "./schema/potion-recipes.js";
 import { potionItems } from "./schema/potion-items.js";
@@ -41,7 +41,7 @@ function initializeDatabase(): void {
       users,
       seeds,
       ingredients,
-      potionModifiers,
+      specialIngredients,
       potions,
       potionRecipes,
       potionItems,

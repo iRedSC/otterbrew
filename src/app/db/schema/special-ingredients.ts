@@ -8,8 +8,8 @@ export type RarityTier =
   | "legendary"
   | "mythic";
 
-export const potionModifiers = pgTable(
-  "potion_modifiers",
+export const specialIngredients = pgTable(
+  "special_ingredients",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     stringId: varchar("string_id", { length: 100 }).notNull().unique(),
@@ -19,9 +19,9 @@ export const potionModifiers = pgTable(
     emoji: varchar("emoji", { length: 10 }),
   },
   (table) => ({
-    stringIdIdx: index("potion_modifiers_string_id_idx").on(table.stringId),
+    stringIdIdx: index("special_ingredients_string_id_idx").on(table.stringId),
   }),
 );
 
-export type PotionModifier = typeof potionModifiers.$inferSelect;
-export type NewPotionModifier = typeof potionModifiers.$inferInsert;
+export type SpecialIngredient = typeof specialIngredients.$inferSelect;
+export type NewSpecialIngredient = typeof specialIngredients.$inferInsert;

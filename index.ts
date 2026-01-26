@@ -15,50 +15,6 @@ if (missingVars.length > 0) {
   process.exit(1);
 }
 
-// Check if pgvector extension is available
-async function checkPgvectorExtension() {
-  console.log("[Startup] Checking for pgvector extension...");
-  try {
-    const result = await db.execute(
-      sql`SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector') as exists`,
-    );
-    const exists = result[0]?.exists;
-    if (exists) {
-      console.log("[Startup] pgvector extension is available");
-      return true;
-    } else {
-      console.error(
-        "[Startup] ❌ pgvector extension is not installed!",
-      );
-      console.error(
-        "[Startup] Please install pgvector extension before running migrations.",
-      );
-      console.error(
-        "[Startup] For managed databases (Supabase, Railway, Neon, etc.),",
-      );
-      console.error(
-        "[Startup] enable pgvector through your database provider's UI or CLI.",
-      );
-      console.error(
-        "[Startup] For self-hosted PostgreSQL, install via:",
-      );
-      console.error(
-        "[Startup]   Ubuntu/Debian: sudo apt-get install postgresql-XX-pgvector",
-      );
-      console.error(
-        "[Startup]   Or compile from source: https://github.com/pgvector/pgvector",
-      );
-      return false;
-    }
-  } catch (error) {
-    console.error("[Startup] Error checking pgvector extension:", error);
-    if (error instanceof Error) {
-      console.error("[Startup] Error message:", error.message);
-    }
-    return false;
-  }
-}
-
 // Run database migrations before starting bot
 async function runMigrations() {
   console.log("[Startup] Running database migrations...");
@@ -70,18 +26,6 @@ async function runMigrations() {
     console.error("[Startup] Migration failed:", error);
     if (error instanceof Error) {
       console.error("[Startup] Error message:", error.message);
-      // Check if it's a pgvector extension error
-      if (
-        error.message.includes("extension") &&
-        error.message.includes("vector")
-      ) {
-        console.error(
-          "[Startup] ❌ pgvector extension is required but not available.",
-        );
-        console.error(
-          "[Startup] Please install pgvector before running migrations.",
-        );
-      }
       console.error("[Startup] Error stack:", error.stack);
     }
     return false;
@@ -107,14 +51,6 @@ async function testDatabaseConnection() {
 
 // Start bot after migrations and database test
 async function startBot() {
-  const pgvectorOk = await checkPgvectorExtension();
-  if (!pgvectorOk) {
-    console.error(
-      "[Startup] pgvector extension check failed. Exiting...",
-    );
-    process.exit(1);
-  }
-
   const migrationsOk = await runMigrations();
   if (!migrationsOk) {
     console.error("[Startup] Failed to run migrations. Exiting...");

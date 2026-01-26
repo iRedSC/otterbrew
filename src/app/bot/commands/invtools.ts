@@ -22,7 +22,7 @@ export const command = {
             .addChoices(
               { name: "Seed", value: "seed" },
               { name: "Ingredient", value: "ingredient" },
-              { name: "Potion Modifier", value: "modifier" },
+              { name: "Special Ingredient", value: "modifier" },
               { name: "All", value: "all" },
             ),
         )

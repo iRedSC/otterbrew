@@ -8,7 +8,7 @@ import {
 import { db } from "@db";
 import { seeds } from "../../../db/schema/seeds.js";
 import { ingredients } from "../../../db/schema/ingredients.js";
-import { potionModifiers } from "../../../db/schema/potion-modifiers.js";
+import { specialIngredients } from "../../../db/schema/special-ingredients.js";
 import type { RarityTier } from "../../../db/schema/seeds.js";
 import type { IngredientAttributes } from "../../../db/schema/ingredients.js";
 import {
@@ -222,7 +222,7 @@ export async function handleGiverandom(
       }
     }
 
-    // Give potion modifiers
+    // Give special ingredients
     if (itemType === "modifier" || itemType === "all") {
       for (let i = 0; i < quantity; i++) {
         const rarity = getRandomRarity();
@@ -230,46 +230,46 @@ export async function handleGiverandom(
           MODIFIER_NAMES[Math.floor(Math.random() * MODIFIER_NAMES.length)];
         const stringId = nameToStringId(modifierName);
 
-        // Try to find existing modifier by stringId
-        let modifier = await db
+        // Try to find existing special ingredient by stringId
+        let specialIngredient = await db
           .select()
-          .from(potionModifiers)
-          .where(eq(potionModifiers.stringId, stringId))
+          .from(specialIngredients)
+          .where(eq(specialIngredients.stringId, stringId))
           .limit(1);
 
         // If not found, create it
-        if (!modifier[0]) {
-          const newModifier = await db
-            .insert(potionModifiers)
+        if (!specialIngredient[0]) {
+          const newSpecialIngredient = await db
+            .insert(specialIngredients)
             .values({
               stringId,
               name: modifierName,
-              description: `A ${rarity} modifier that transforms potions in mysterious ways.`,
+              description: `A ${rarity} special ingredient that transforms potions in mysterious ways.`,
               rarity,
             })
             .returning();
-          modifier = newModifier;
+          specialIngredient = newSpecialIngredient;
         }
 
-        if (modifier[0]) {
-          // Potion modifiers are stored as ingredients in inventory
+        if (specialIngredient[0]) {
+          // Special ingredients are stored as ingredients in inventory
           const added = await addItemToInventory(
             user.discordId,
             "ingredient",
-            modifier[0].id,
+            specialIngredient[0].id,
             1,
           );
           if (added) {
             givenItems.push({
-              type: "Potion Modifier",
-              details: modifier[0]
+              type: "Special Ingredient",
+              details: specialIngredient[0]
                 ? {
-                    id: modifier[0].id,
-                    name: modifier[0].name,
-                    description: modifier[0].description,
-                    type: "potion_modifier",
-                    rarity: modifier[0].rarity,
-                    emoji: modifier[0].emoji,
+                    id: specialIngredient[0].id,
+                    name: specialIngredient[0].name,
+                    description: specialIngredient[0].description,
+                    type: "special_ingredient",
+                    rarity: specialIngredient[0].rarity,
+                    emoji: specialIngredient[0].emoji,
                   }
                 : null,
             });

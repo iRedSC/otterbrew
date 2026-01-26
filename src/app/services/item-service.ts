@@ -3,12 +3,12 @@ import { db } from "@db";
 import { users, type InventorySlot } from "../db/schema/users.js";
 import { seeds } from "../db/schema/seeds.js";
 import { ingredients } from "../db/schema/ingredients.js";
-import { potionModifiers } from "../db/schema/potion-modifiers.js";
+import { specialIngredients } from "../db/schema/special-ingredients.js";
 import { potions } from "../db/schema/potions.js";
 import { potionItems } from "../db/schema/potion-items.js";
 import type { Seed } from "../db/schema/seeds.js";
 import type { Ingredient } from "../db/schema/ingredients.js";
-import type { PotionModifier } from "../db/schema/potion-modifiers.js";
+import type { SpecialIngredient } from "../db/schema/special-ingredients.js";
 import type { Potion } from "../db/schema/potions.js";
 import type { PotionItem } from "../db/schema/potion-items.js";
 
@@ -56,7 +56,7 @@ export interface ItemDetails {
   id: string;
   name: string;
   description: string;
-  type: "seed" | "ingredient" | "potion_modifier" | "potion";
+  type: "seed" | "ingredient" | "special_ingredient" | "potion";
   rarity?: string;
   emoji?: string | null;
   attributes?: {
@@ -101,25 +101,25 @@ export async function getItemDetails(
         };
       }
     } else if (itemType === "ingredient") {
-      // First check if it's a potion modifier
-      const modifier = await db
+      // First check if it's a special ingredient
+      const specialIngredient = await db
         .select()
-        .from(potionModifiers)
-        .where(eq(potionModifiers.id, itemId))
+        .from(specialIngredients)
+        .where(eq(specialIngredients.id, itemId))
         .limit(1);
-      console.log(`[ItemService] Modifier query result:`, {
-        found: !!modifier[0],
-        modifierId: modifier[0]?.id,
-        modifierName: modifier[0]?.name,
+      console.log(`[ItemService] Special ingredient query result:`, {
+        found: !!specialIngredient[0],
+        specialIngredientId: specialIngredient[0]?.id,
+        specialIngredientName: specialIngredient[0]?.name,
       });
-      if (modifier[0]) {
+      if (specialIngredient[0]) {
         return {
-          id: modifier[0].id,
-          name: modifier[0].name,
-          description: modifier[0].description,
-          type: "potion_modifier",
-          rarity: modifier[0].rarity,
-          emoji: modifier[0].emoji,
+          id: specialIngredient[0].id,
+          name: specialIngredient[0].name,
+          description: specialIngredient[0].description,
+          type: "special_ingredient",
+          rarity: specialIngredient[0].rarity,
+          emoji: specialIngredient[0].emoji,
         };
       }
       // Otherwise, it's a regular ingredient
@@ -231,23 +231,23 @@ export async function findItemByStringId(
       };
     }
 
-    // Try potion modifiers
-    const modifier = await db
+    // Try special ingredients
+    const specialIngredient = await db
       .select()
-      .from(potionModifiers)
-      .where(eq(potionModifiers.stringId, stringId))
+      .from(specialIngredients)
+      .where(eq(specialIngredients.stringId, stringId))
       .limit(1);
-    if (modifier[0]) {
+    if (specialIngredient[0]) {
       return {
-        itemType: "ingredient", // Modifiers are stored as ingredients
-        itemId: modifier[0].id,
+        itemType: "ingredient", // Special ingredients are stored as ingredients
+        itemId: specialIngredient[0].id,
         details: {
-          id: modifier[0].id,
-          name: modifier[0].name,
-          description: modifier[0].description,
-          type: "potion_modifier",
-          rarity: modifier[0].rarity,
-          emoji: modifier[0].emoji,
+          id: specialIngredient[0].id,
+          name: specialIngredient[0].name,
+          description: specialIngredient[0].description,
+          type: "special_ingredient",
+          rarity: specialIngredient[0].rarity,
+          emoji: specialIngredient[0].emoji,
         },
       };
     }

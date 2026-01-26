@@ -55,7 +55,7 @@ async function groupInventoryItems(
   itemsWithDetails.forEach((item) => {
     const name = item.details?.name || `Unknown ${item.itemType} (${item.itemId})`;
     const displayType =
-      item.details?.type === "potion_modifier"
+      item.details?.type === "special_ingredient"
         ? "modifier"
         : item.itemType;
     const rarity = item.details?.rarity || "";
@@ -140,7 +140,7 @@ function buildPageEmbed(
     const pageLabels: Record<PageType, string> = {
       ingredients: "ingredients",
       potions: "potions",
-      modifiers: "potion modifiers",
+      modifiers: "special ingredients",
       seeds: "seeds",
     };
     embed.setDescription(`You have no ${pageLabels[pageType]} in your inventory.`);
@@ -171,7 +171,7 @@ function buildPageEmbed(
             getItemDisplayName(item.details, item.quantity, true, true, true),
           )
           .join("\n");
-        fieldName = "✨ Potion Modifiers";
+        fieldName = "✨ Special Ingredients";
         break;
       case "seeds":
         itemList = items
