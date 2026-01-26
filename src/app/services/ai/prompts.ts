@@ -34,7 +34,7 @@ Ingredients have 8-dimensional attributes that affect potion brewing:
 Generate an ingredient with:
 - name: A creative, fantasy-themed ingredient name (3-50 characters, no special chars except spaces/hyphens)
 - description: A vivid description of the ingredient (10-100 characters)
-- attributes: An object with 1-3 attributes as integers (each between -100 and 100)
+- attributes: An object with 1-3 attributes as integers (each between -100 and 100) Set all the rest to 0.
 - emoji: An optional emoji that represents the ingredient (single emoji, max 10 chars)
 
 The ingredient should fit a fantasy alchemy theme. Be creative and unique. The attributes should make sense for the ingredient's theme.
