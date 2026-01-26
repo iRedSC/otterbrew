@@ -15,7 +15,10 @@ import {
   addLongField,
   getItemDisplayName,
 } from "../../utils/embed-helpers.js";
-import type { ItemDetails } from "../../../services/item-service.js";
+import {
+  getItemDetails,
+  type ItemDetails,
+} from "../../../services/item-service.js";
 import { calculateRarityFromAttributes } from "../../../services/ai/rarity-calculator.js";
 
 const RARITY_TIERS: RarityTier[] = [
@@ -137,6 +140,7 @@ export async function handleGiverandom(
               name: seedName,
               description: `A mysterious ${rarity} seed that glimmers with potential.`,
               rarity,
+              emoji: "🌱", // Default emoji for seeds
             })
             .returning();
           seed = newSeed;
@@ -150,18 +154,11 @@ export async function handleGiverandom(
             1,
           );
           if (added) {
+            // Retrieve item details to ensure emoji from /gen is reused
+            const details = await getItemDetails("seed", seed[0].id);
             givenItems.push({
               type: "Seed",
-              details: seed[0]
-                ? {
-                    id: seed[0].id,
-                    name: seed[0].name,
-                    description: seed[0].description,
-                    type: "seed",
-                    rarity: seed[0].rarity,
-                    emoji: seed[0].emoji,
-                  }
-                : null,
+              details,
             });
           }
         }
@@ -194,6 +191,7 @@ export async function handleGiverandom(
               description: `A powerful alchemical ingredient with mysterious properties.`,
               attributes: attributes as any,
               rarity,
+              emoji: "🌿", // Default emoji for ingredients
             })
             .returning();
           ingredient = newIngredient;
@@ -207,19 +205,11 @@ export async function handleGiverandom(
             1,
           );
           if (added) {
+            // Retrieve item details to ensure emoji from /gen is reused
+            const details = await getItemDetails("ingredient", ingredient[0].id);
             givenItems.push({
               type: "Ingredient",
-              details: ingredient[0]
-                ? {
-                    id: ingredient[0].id,
-                    name: ingredient[0].name,
-                    description: ingredient[0].description,
-                    type: "ingredient",
-                    rarity: ingredient[0].rarity,
-                    attributes: ingredient[0].attributes as IngredientAttributes,
-                    emoji: ingredient[0].emoji,
-                  }
-                : null,
+              details,
             });
           }
         }
@@ -250,6 +240,7 @@ export async function handleGiverandom(
               name: modifierName,
               description: `A ${rarity} special ingredient that transforms potions in mysterious ways.`,
               rarity,
+              emoji: "✨", // Default emoji for special ingredients
             })
             .returning();
           specialIngredient = newSpecialIngredient;
@@ -264,18 +255,13 @@ export async function handleGiverandom(
             1,
           );
           if (added) {
+            // Retrieve item details to ensure emoji from /gen is reused
+            // Note: Special ingredients are stored as "ingredient" type in inventory
+            // but we need to get details from specialIngredients table
+            const details = await getItemDetails("ingredient", specialIngredient[0].id);
             givenItems.push({
               type: "Special Ingredient",
-              details: specialIngredient[0]
-                ? {
-                    id: specialIngredient[0].id,
-                    name: specialIngredient[0].name,
-                    description: specialIngredient[0].description,
-                    type: "special_ingredient",
-                    rarity: specialIngredient[0].rarity,
-                    emoji: specialIngredient[0].emoji,
-                  }
-                : null,
+              details,
             });
           }
         }
