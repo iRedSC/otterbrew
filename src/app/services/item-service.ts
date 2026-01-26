@@ -71,12 +71,18 @@ export async function getItemDetails(
   itemId: string,
 ): Promise<ItemDetails | null> {
   try {
+    console.log(`[ItemService] getItemDetails called:`, { itemType, itemId });
     if (itemType === "seed") {
       const seed = await db
         .select()
         .from(seeds)
         .where(eq(seeds.id, itemId))
         .limit(1);
+      console.log(`[ItemService] Seed query result:`, {
+        found: !!seed[0],
+        seedId: seed[0]?.id,
+        seedName: seed[0]?.name,
+      });
       if (seed[0]) {
         return {
           id: seed[0].id,
@@ -93,6 +99,11 @@ export async function getItemDetails(
         .from(potionModifiers)
         .where(eq(potionModifiers.id, itemId))
         .limit(1);
+      console.log(`[ItemService] Modifier query result:`, {
+        found: !!modifier[0],
+        modifierId: modifier[0]?.id,
+        modifierName: modifier[0]?.name,
+      });
       if (modifier[0]) {
         return {
           id: modifier[0].id,
@@ -108,6 +119,11 @@ export async function getItemDetails(
         .from(ingredients)
         .where(eq(ingredients.id, itemId))
         .limit(1);
+      console.log(`[ItemService] Ingredient query result:`, {
+        found: !!ingredient[0],
+        ingredientId: ingredient[0]?.id,
+        ingredientName: ingredient[0]?.name,
+      });
       if (ingredient[0]) {
         return {
           id: ingredient[0].id,
@@ -119,11 +135,20 @@ export async function getItemDetails(
       }
     } else if (itemType === "grimoire") {
       // Grimoires will be handled separately when implemented
+      console.log(`[ItemService] Grimoire type not yet implemented`);
+      return null;
+    } else if (itemType === "potion") {
+      console.log(`[ItemService] Potion type not yet implemented in getItemDetails`);
       return null;
     }
+    console.log(`[ItemService] No item found for type ${itemType} with id ${itemId}`);
     return null;
   } catch (error) {
     console.error("[ItemService] Error fetching item details:", error);
+    if (error instanceof Error) {
+      console.error("[ItemService] Error message:", error.message);
+      console.error("[ItemService] Error stack:", error.stack);
+    }
     return null;
   }
 }

@@ -37,7 +37,7 @@ export const command = {
       const inventory = parseInventory(user.inventory);
       console.log(`[Inventory] Parsed inventory:`, {
         length: inventory.length,
-        items: JSON.stringify(inventory),
+        items: JSON.stringify(inventory, null, 2),
       });
 
       const totalItems = inventory.reduce(
@@ -49,6 +49,20 @@ export const command = {
 
       // Fetch item details
       const itemsWithDetails = await getInventoryItems(inventory);
+      console.log(`[Inventory] Items with details:`, {
+        count: itemsWithDetails.length,
+        items: JSON.stringify(
+          itemsWithDetails.map((item) => ({
+            itemType: item.itemType,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            hasDetails: !!item.details,
+            detailsName: item.details?.name || "null",
+          })),
+          null,
+          2,
+        ),
+      });
 
       console.log(`[Inventory] Building embed...`);
       const embed = new EmbedBuilder()
@@ -89,8 +103,9 @@ export const command = {
           }
         >();
 
+        // Process all items, even if details are missing
         itemsWithDetails.forEach((item) => {
-          const name = item.details?.name || item.itemId;
+          const name = item.details?.name || `Unknown ${item.itemType} (${item.itemId})`;
           const displayType =
             item.details?.type === "potion_modifier"
               ? "modifier"
@@ -111,6 +126,16 @@ export const command = {
             });
           }
         });
+
+        // If no items were processed, show a warning
+        if (stackedItems.size === 0 && inventory.length > 0) {
+          console.warn(
+            `[Inventory] Warning: ${inventory.length} items in inventory but none could be processed`,
+          );
+          embed.setDescription(
+            `⚠️ You have ${inventory.length} item(s) in your inventory, but their details could not be loaded. This might indicate a database issue.`,
+          );
+        }
 
         // Group stacked items by type
         const itemsByType: Record<
