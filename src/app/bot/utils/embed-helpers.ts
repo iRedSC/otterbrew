@@ -105,20 +105,6 @@ export function getItemDisplayName(
 }
 
 /**
- * Emoji mapping for attribute types
- */
-const ATTRIBUTE_EMOJIS: Record<string, string> = {
-  spice: "🌶️",
-  time: "🕑",
-  fizz: "🍾",
-  zest: "✨",
-  bane: "☠️",
-  fantasy: "☁️",
-  chaos: "🌪️",
-  darkness: "🔮",
-};
-
-/**
  * Formats attributes object into a string with emoji prefixes.
  * Example: { spice: 5, time: -3 } -> "🌶️5, 🕑-3"
  *
