@@ -470,6 +470,8 @@ Incorporate these flavor themes: ${flavors.join(", ")}.
 
 IMPORTANT - DO NOT INCLUDE THE ATTRIBUTES IN THE NAME OR DESCRIPTION. This is very important.
 
+Important - Negative attributes have the opposite effect of positive attributes. For example, a 100 spice attribute means the ingredient is extremely spicy, while a 100 spice attribute means the ingredient is extremely cold
+
 Return ONLY valid JSON in this exact format:
 {
   "name": "Ingredient Name",
