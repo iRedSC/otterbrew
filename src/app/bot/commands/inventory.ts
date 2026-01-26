@@ -128,6 +128,14 @@ export const command = {
               rarity: item.details?.rarity,
               emoji: item.details?.emoji,
             });
+            // Debug logging for emoji
+            console.log(`[Inventory] Item stacked:`, {
+              name,
+              type: displayType,
+              rarity: item.details?.rarity,
+              emoji: item.details?.emoji,
+              emojiType: typeof item.details?.emoji,
+            });
           }
         });
 
@@ -194,11 +202,17 @@ export const command = {
         if (itemsByType.modifier.length > 0) {
           const modifierList = itemsByType.modifier
             .map((item) => {
+              console.log(`[Inventory] Formatting modifier:`, {
+                name: item.name,
+                rarity: item.rarity,
+                emoji: item.emoji,
+              });
               const formattedName = formatItemNameByTier(
                 item.name,
                 item.rarity,
                 item.emoji,
               );
+              console.log(`[Inventory] Formatted modifier name:`, formattedName);
               return `• ${formattedName} (x${item.quantity})`;
             })
             .join("\n");
@@ -209,11 +223,17 @@ export const command = {
         if (itemsByType.seed.length > 0) {
           const seedList = itemsByType.seed
             .map((item) => {
+              console.log(`[Inventory] Formatting seed:`, {
+                name: item.name,
+                rarity: item.rarity,
+                emoji: item.emoji,
+              });
               const formattedName = formatItemNameByTier(
                 item.name,
                 item.rarity,
                 item.emoji,
               );
+              console.log(`[Inventory] Formatted seed name:`, formattedName);
               return `• ${formattedName} (x${item.quantity})`;
             })
             .join("\n");

@@ -21,7 +21,12 @@ export function formatItemNameByTier(
   tier?: RarityTier | string | null,
   emoji?: string | null,
 ): string {
-  const emojiPrefix = emoji ? `${emoji} ` : "";
+  // Handle emoji: check for truthy value and non-empty string
+  // Safely handle null/undefined/empty string
+  const emojiPrefix =
+    emoji && typeof emoji === "string" && emoji.trim().length > 0
+      ? `${emoji.trim()} `
+      : "";
   
   if (!tier) {
     return `${emojiPrefix}${name}`;

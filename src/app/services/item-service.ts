@@ -83,6 +83,8 @@ export async function getItemDetails(
         found: !!seed[0],
         seedId: seed[0]?.id,
         seedName: seed[0]?.name,
+        emoji: seed[0]?.emoji,
+        emojiType: typeof seed[0]?.emoji,
       });
       if (seed[0]) {
         return {
@@ -105,6 +107,8 @@ export async function getItemDetails(
         found: !!modifier[0],
         modifierId: modifier[0]?.id,
         modifierName: modifier[0]?.name,
+        emoji: modifier[0]?.emoji,
+        emojiType: typeof modifier[0]?.emoji,
       });
       if (modifier[0]) {
         return {
@@ -126,6 +130,8 @@ export async function getItemDetails(
         found: !!ingredient[0],
         ingredientId: ingredient[0]?.id,
         ingredientName: ingredient[0]?.name,
+        emoji: ingredient[0]?.emoji,
+        emojiType: typeof ingredient[0]?.emoji,
       });
       if (ingredient[0]) {
         return {
