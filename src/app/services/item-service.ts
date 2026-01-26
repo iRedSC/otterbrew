@@ -9,6 +9,36 @@ import type { Ingredient } from "../db/schema/ingredients.js";
 import type { PotionModifier } from "../db/schema/potion-modifiers.js";
 
 /**
+ * Parses inventory from various formats (array, string, object) into InventorySlot[]
+ */
+export function parseInventory(inventory: unknown): InventorySlot[] {
+  if (!inventory) {
+    return [];
+  }
+
+  if (Array.isArray(inventory)) {
+    return inventory;
+  }
+
+  if (typeof inventory === "string") {
+    try {
+      const parsed = JSON.parse(inventory);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error("[ItemService] Failed to parse inventory string:", e);
+      return [];
+    }
+  }
+
+  if (typeof inventory === "object") {
+    // Might be a JSONB object that needs conversion
+    return Array.isArray(inventory) ? inventory : [];
+  }
+
+  return [];
+}
+
+/**
  * Converts a name to a stringId (e.g., "Glowing Red Seeds" -> "glowing_red_seeds")
  */
 export function nameToStringId(name: string): string {
@@ -193,9 +223,7 @@ export async function addItemToInventory(
       return false;
     }
 
-    const inventory: InventorySlot[] = Array.isArray(user[0].inventory)
-      ? user[0].inventory
-      : [];
+    const inventory = parseInventory(user[0].inventory);
 
     // Check if item already exists in inventory
     const existingSlotIndex = inventory.findIndex(
@@ -222,7 +250,7 @@ export async function addItemToInventory(
     await db
       .update(users)
       .set({
-        inventory: inventory as any,
+        inventory: inventory satisfies InventorySlot[],
         updatedAt: new Date(),
       })
       .where(eq(users.discordId, discordId));

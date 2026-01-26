@@ -4,7 +4,10 @@ import {
   EmbedBuilder,
 } from "discord.js";
 import { getOrCreateUser } from "../../services/user-service.js";
-import { getInventoryItems } from "../../services/item-service.js";
+import {
+  getInventoryItems,
+  parseInventory,
+} from "../../services/item-service.js";
 import type { InventorySlot } from "../../db/schema/users.js";
 import { addLongField } from "../utils/embed-helpers.js";
 
@@ -24,14 +27,18 @@ export const command = {
       console.log(`[Inventory] User data retrieved:`, {
         discordId: user.discordId,
         maxInventorySlots: user.maxInventorySlots,
+        inventoryType: typeof user.inventory,
+        inventoryValue: JSON.stringify(user.inventory),
         inventoryLength: Array.isArray(user.inventory)
           ? user.inventory.length
           : 0,
       });
 
-      const inventory: InventorySlot[] = Array.isArray(user.inventory)
-        ? user.inventory
-        : [];
+      const inventory = parseInventory(user.inventory);
+      console.log(`[Inventory] Parsed inventory:`, {
+        length: inventory.length,
+        items: JSON.stringify(inventory),
+      });
 
       const totalItems = inventory.reduce(
         (sum, slot) => sum + slot.quantity,
