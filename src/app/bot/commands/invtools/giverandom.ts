@@ -1,16 +1,12 @@
 import { type ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
-import { eq } from "drizzle-orm";
 import { getOrCreateUser } from "../../../services/user-service.js";
 import {
   addItemToInventory,
-  nameToStringId,
 } from "../../../services/item-service.js";
 import { db } from "@db";
 import { seeds } from "../../../db/schema/seeds.js";
 import { ingredients } from "../../../db/schema/ingredients.js";
 import { specialIngredients } from "../../../db/schema/special-ingredients.js";
-import type { RarityTier } from "../../../db/schema/seeds.js";
-import type { IngredientAttributes } from "../../../db/schema/ingredients.js";
 import {
   addLongField,
   getItemDisplayName,
@@ -19,85 +15,8 @@ import {
   getItemDetails,
   type ItemDetails,
 } from "../../../services/item-service.js";
-import { calculateRarityFromAttributes } from "../../../services/ai/rarity-calculator.js";
 
-const RARITY_TIERS: RarityTier[] = [
-  "basic",
-  "uncommon",
-  "rare",
-  "epic",
-  "legendary",
-  "mythic",
-];
-
-function getRandomRarity(): RarityTier {
-  const weights = [40, 30, 15, 10, 4, 1]; // Weighted towards lower rarities
-  const total = weights.reduce((a, b) => a + b, 0);
-  let random = Math.random() * total;
-  for (let i = 0; i < weights.length; i++) {
-    random -= weights[i];
-    if (random <= 0) {
-      return RARITY_TIERS[i];
-    }
-  }
-  return "basic";
-}
-
-function generateRandomAttributes(): IngredientAttributes {
-  const rarity = getRandomRarity();
-  const maxValue = {
-    basic: 5,
-    uncommon: 10,
-    rare: 20,
-    epic: 35,
-    legendary: 50,
-    mythic: 100,
-  }[rarity];
-
-  return {
-    spice: Math.floor(Math.random() * maxValue * 2) - maxValue,
-    time: Math.floor(Math.random() * maxValue * 2) - maxValue,
-    fizz: Math.floor(Math.random() * maxValue * 2) - maxValue,
-    zest: Math.floor(Math.random() * maxValue * 2) - maxValue,
-    bane: Math.floor(Math.random() * maxValue * 2) - maxValue,
-    fantasy: Math.floor(Math.random() * maxValue * 2) - maxValue,
-    chaos: Math.floor(Math.random() * maxValue * 2) - maxValue,
-    darkness: Math.floor(Math.random() * maxValue * 2) - maxValue,
-  };
-}
-
-const SEED_NAMES = [
-  "Glowing Red Seeds",
-  "Crystalline Blue Seeds",
-  "Shadowy Black Seeds",
-  "Golden Sun Seeds",
-  "Silver Moon Seeds",
-  "Emerald Green Seeds",
-  "Fiery Orange Seeds",
-  "Frosty White Seeds",
-];
-
-const INGREDIENT_NAMES = [
-  "Dragon Scale",
-  "Phoenix Feather",
-  "Unicorn Horn",
-  "Basilisk Eye",
-  "Mandrake Root",
-  "Wolfsbane",
-  "Moonstone Dust",
-  "Sunstone Crystal",
-  "Shadow Essence",
-  "Light Fragment",
-];
-
-const MODIFIER_NAMES = [
-  "Antimatter",
-  "Amplifier",
-  "Nullifier",
-  "Inverter",
-  "Catalyst",
-  "Stabilizer",
-];
+// Removed hardcoded names - giverandom now only uses items from database
 
 export async function handleGiverandom(
   interaction: ChatInputCommandInteraction,
@@ -116,153 +35,91 @@ export async function handleGiverandom(
       details: ItemDetails | null;
     }> = [];
 
-    // Give seeds
+    // Give seeds - only from existing items in database
     if (itemType === "seed" || itemType === "all") {
-      for (let i = 0; i < quantity; i++) {
-        const rarity = getRandomRarity();
-        const seedName =
-          SEED_NAMES[Math.floor(Math.random() * SEED_NAMES.length)];
-        const stringId = nameToStringId(seedName);
-
-        // Try to find existing seed by stringId
-        let seed = await db
-          .select()
-          .from(seeds)
-          .where(eq(seeds.stringId, stringId))
-          .limit(1);
-
-        // If not found, create it
-        if (!seed[0]) {
-          const newSeed = await db
-            .insert(seeds)
-            .values({
-              stringId,
-              name: seedName,
-              description: `A mysterious ${rarity} seed that glimmers with potential.`,
-              rarity,
-              emoji: "🌱", // Default emoji for seeds
-            })
-            .returning();
-          seed = newSeed;
-        }
-
-        if (seed[0]) {
-          const added = await addItemToInventory(
-            user.discordId,
-            "seed",
-            seed[0].id,
-            1,
-          );
-          if (added) {
-            // Retrieve item details to ensure emoji from /gen is reused
-            const details = await getItemDetails("seed", seed[0].id);
-            givenItems.push({
-              type: "Seed",
-              details,
-            });
+      const allSeeds = await db.select().from(seeds);
+      
+      if (allSeeds.length > 0) {
+        for (let i = 0; i < quantity; i++) {
+          // Randomly select an existing seed
+          const randomSeed = allSeeds[Math.floor(Math.random() * allSeeds.length)];
+          
+          if (randomSeed) {
+            const added = await addItemToInventory(
+              user.discordId,
+              "seed",
+              randomSeed.id,
+              1,
+            );
+            if (added) {
+              // Retrieve item details to ensure emoji from /gen is reused
+              const details = await getItemDetails("seed", randomSeed.id);
+              givenItems.push({
+                type: "Seed",
+                details,
+              });
+            }
           }
         }
       }
     }
 
-    // Give ingredients
+    // Give ingredients - only from existing items in database
     if (itemType === "ingredient" || itemType === "all") {
-      for (let i = 0; i < quantity; i++) {
-        const ingredientName =
-          INGREDIENT_NAMES[Math.floor(Math.random() * INGREDIENT_NAMES.length)];
-        const stringId = nameToStringId(ingredientName);
-        const attributes = generateRandomAttributes();
-
-        // Try to find existing ingredient by stringId
-        let ingredient = await db
-          .select()
-          .from(ingredients)
-          .where(eq(ingredients.stringId, stringId))
-          .limit(1);
-
-        // If not found, create it
-        if (!ingredient[0]) {
-          const rarity = calculateRarityFromAttributes(attributes);
-          const newIngredient = await db
-            .insert(ingredients)
-            .values({
-              stringId,
-              name: ingredientName,
-              description: `A powerful alchemical ingredient with mysterious properties.`,
-              attributes: attributes as any,
-              rarity,
-              emoji: "🌿", // Default emoji for ingredients
-            })
-            .returning();
-          ingredient = newIngredient;
-        }
-
-        if (ingredient[0]) {
-          const added = await addItemToInventory(
-            user.discordId,
-            "ingredient",
-            ingredient[0].id,
-            1,
-          );
-          if (added) {
-            // Retrieve item details to ensure emoji from /gen is reused
-            const details = await getItemDetails("ingredient", ingredient[0].id);
-            givenItems.push({
-              type: "Ingredient",
-              details,
-            });
+      const allIngredients = await db.select().from(ingredients);
+      
+      if (allIngredients.length > 0) {
+        for (let i = 0; i < quantity; i++) {
+          // Randomly select an existing ingredient
+          const randomIngredient = allIngredients[Math.floor(Math.random() * allIngredients.length)];
+          
+          if (randomIngredient) {
+            const added = await addItemToInventory(
+              user.discordId,
+              "ingredient",
+              randomIngredient.id,
+              1,
+            );
+            if (added) {
+              // Retrieve item details to ensure emoji from /gen is reused
+              const details = await getItemDetails("ingredient", randomIngredient.id);
+              givenItems.push({
+                type: "Ingredient",
+                details,
+              });
+            }
           }
         }
       }
     }
 
-    // Give special ingredients
+    // Give special ingredients - only from existing items in database
     if (itemType === "modifier" || itemType === "all") {
-      for (let i = 0; i < quantity; i++) {
-        const rarity = getRandomRarity();
-        const modifierName =
-          MODIFIER_NAMES[Math.floor(Math.random() * MODIFIER_NAMES.length)];
-        const stringId = nameToStringId(modifierName);
-
-        // Try to find existing special ingredient by stringId
-        let specialIngredient = await db
-          .select()
-          .from(specialIngredients)
-          .where(eq(specialIngredients.stringId, stringId))
-          .limit(1);
-
-        // If not found, create it
-        if (!specialIngredient[0]) {
-          const newSpecialIngredient = await db
-            .insert(specialIngredients)
-            .values({
-              stringId,
-              name: modifierName,
-              description: `A ${rarity} special ingredient that transforms potions in mysterious ways.`,
-              rarity,
-              emoji: "✨", // Default emoji for special ingredients
-            })
-            .returning();
-          specialIngredient = newSpecialIngredient;
-        }
-
-        if (specialIngredient[0]) {
-          // Special ingredients are stored as ingredients in inventory
-          const added = await addItemToInventory(
-            user.discordId,
-            "ingredient",
-            specialIngredient[0].id,
-            1,
-          );
-          if (added) {
-            // Retrieve item details to ensure emoji from /gen is reused
-            // Note: Special ingredients are stored as "ingredient" type in inventory
-            // but we need to get details from specialIngredients table
-            const details = await getItemDetails("ingredient", specialIngredient[0].id);
-            givenItems.push({
-              type: "Special Ingredient",
-              details,
-            });
+      const allSpecialIngredients = await db.select().from(specialIngredients);
+      
+      if (allSpecialIngredients.length > 0) {
+        for (let i = 0; i < quantity; i++) {
+          // Randomly select an existing special ingredient
+          const randomSpecialIngredient = allSpecialIngredients[Math.floor(Math.random() * allSpecialIngredients.length)];
+          
+          if (randomSpecialIngredient) {
+            // Special ingredients are stored as ingredients in inventory
+            const added = await addItemToInventory(
+              user.discordId,
+              "ingredient",
+              randomSpecialIngredient.id,
+              1,
+            );
+            if (added) {
+              // Retrieve item details to ensure emoji from /gen is reused
+              // Note: Special ingredients are stored as "ingredient" type in inventory
+              // but we need to get details from specialIngredients table
+              const details = await getItemDetails("ingredient", randomSpecialIngredient.id);
+              givenItems.push({
+                type: "Special Ingredient",
+                details,
+              });
+            }
           }
         }
       }
@@ -270,11 +127,11 @@ export async function handleGiverandom(
 
     const embed = new EmbedBuilder()
       .setTitle("🎁 Random Items Given")
-      .setColor(0x00ff00)
+      .setColor(givenItems.length > 0 ? 0x00ff00 : 0xff0000)
       .setDescription(
         givenItems.length > 0
           ? `Successfully added ${givenItems.length} item(s) to your inventory!`
-          : "❌ Failed to add items. Your inventory might be full.",
+          : "❌ No items available. Use `/gen` to create items first, then use this command to randomly give them.",
       )
       .setTimestamp();
 
