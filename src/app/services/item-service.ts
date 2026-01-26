@@ -8,6 +8,16 @@ import type { Seed } from "../db/schema/seeds.js";
 import type { Ingredient } from "../db/schema/ingredients.js";
 import type { PotionModifier } from "../db/schema/potion-modifiers.js";
 
+/**
+ * Converts a name to a stringId (e.g., "Glowing Red Seeds" -> "glowing_red_seeds")
+ */
+export function nameToStringId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 export interface ItemDetails {
   id: string;
   name: string;
@@ -84,6 +94,84 @@ export async function getItemDetails(
     return null;
   } catch (error) {
     console.error("[ItemService] Error fetching item details:", error);
+    return null;
+  }
+}
+
+/**
+ * Find an item by stringId across all item types
+ */
+export async function findItemByStringId(
+  stringId: string,
+): Promise<{
+  itemType: InventorySlot["itemType"];
+  itemId: string;
+  details: ItemDetails;
+} | null> {
+  try {
+    // Try seeds first
+    const seed = await db
+      .select()
+      .from(seeds)
+      .where(eq(seeds.stringId, stringId))
+      .limit(1);
+    if (seed[0]) {
+      return {
+        itemType: "seed",
+        itemId: seed[0].id,
+        details: {
+          id: seed[0].id,
+          name: seed[0].name,
+          description: seed[0].description,
+          type: "seed",
+          rarity: seed[0].rarity,
+        },
+      };
+    }
+
+    // Try potion modifiers
+    const modifier = await db
+      .select()
+      .from(potionModifiers)
+      .where(eq(potionModifiers.stringId, stringId))
+      .limit(1);
+    if (modifier[0]) {
+      return {
+        itemType: "ingredient", // Modifiers are stored as ingredients
+        itemId: modifier[0].id,
+        details: {
+          id: modifier[0].id,
+          name: modifier[0].name,
+          description: modifier[0].description,
+          type: "potion_modifier",
+          rarity: modifier[0].rarity,
+        },
+      };
+    }
+
+    // Try ingredients
+    const ingredient = await db
+      .select()
+      .from(ingredients)
+      .where(eq(ingredients.stringId, stringId))
+      .limit(1);
+    if (ingredient[0]) {
+      return {
+        itemType: "ingredient",
+        itemId: ingredient[0].id,
+        details: {
+          id: ingredient[0].id,
+          name: ingredient[0].name,
+          description: ingredient[0].description,
+          type: "ingredient",
+          attributes: ingredient[0].attributes as Ingredient["attributes"],
+        },
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("[ItemService] Error finding item by stringId:", error);
     return null;
   }
 }

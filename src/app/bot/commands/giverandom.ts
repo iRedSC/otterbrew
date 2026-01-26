@@ -3,8 +3,12 @@ import {
   type ChatInputCommandInteraction,
   EmbedBuilder,
 } from "discord.js";
+import { eq } from "drizzle-orm";
 import { getOrCreateUser } from "../../services/user-service.js";
-import { addItemToInventory } from "../../services/item-service.js";
+import {
+  addItemToInventory,
+  nameToStringId,
+} from "../../services/item-service.js";
 import { db } from "@db";
 import { seeds } from "../../db/schema/seeds.js";
 import { ingredients } from "../../db/schema/ingredients.js";
@@ -136,14 +140,28 @@ export const command = {
           const rarity = getRandomRarity();
           const seedName =
             SEED_NAMES[Math.floor(Math.random() * SEED_NAMES.length)];
-          const seed = await db
-            .insert(seeds)
-            .values({
-              name: seedName,
-              description: `A mysterious ${rarity} seed that glimmers with potential.`,
-              rarity,
-            })
-            .returning();
+          const stringId = nameToStringId(seedName);
+          
+          // Try to find existing seed by stringId
+          let seed = await db
+            .select()
+            .from(seeds)
+            .where(eq(seeds.stringId, stringId))
+            .limit(1);
+
+          // If not found, create it
+          if (!seed[0]) {
+            const newSeed = await db
+              .insert(seeds)
+              .values({
+                stringId,
+                name: seedName,
+                description: `A mysterious ${rarity} seed that glimmers with potential.`,
+                rarity,
+              })
+              .returning();
+            seed = newSeed;
+          }
 
           if (seed[0]) {
             const added = await addItemToInventory(
@@ -156,7 +174,7 @@ export const command = {
               givenItems.push({
                 type: "Seed",
                 name: seedName,
-                rarity,
+                rarity: seed[0].rarity,
               });
             }
           }
@@ -168,15 +186,29 @@ export const command = {
         for (let i = 0; i < quantity; i++) {
           const ingredientName =
             INGREDIENT_NAMES[Math.floor(Math.random() * INGREDIENT_NAMES.length)];
+          const stringId = nameToStringId(ingredientName);
           const attributes = generateRandomAttributes();
-          const ingredient = await db
-            .insert(ingredients)
-            .values({
-              name: ingredientName,
-              description: `A powerful alchemical ingredient with mysterious properties.`,
-              attributes: attributes as any,
-            })
-            .returning();
+          
+          // Try to find existing ingredient by stringId
+          let ingredient = await db
+            .select()
+            .from(ingredients)
+            .where(eq(ingredients.stringId, stringId))
+            .limit(1);
+
+          // If not found, create it
+          if (!ingredient[0]) {
+            const newIngredient = await db
+              .insert(ingredients)
+              .values({
+                stringId,
+                name: ingredientName,
+                description: `A powerful alchemical ingredient with mysterious properties.`,
+                attributes: attributes as any,
+              })
+              .returning();
+            ingredient = newIngredient;
+          }
 
           if (ingredient[0]) {
             const added = await addItemToInventory(
@@ -201,14 +233,28 @@ export const command = {
           const rarity = getRandomRarity();
           const modifierName =
             MODIFIER_NAMES[Math.floor(Math.random() * MODIFIER_NAMES.length)];
-          const modifier = await db
-            .insert(potionModifiers)
-            .values({
-              name: modifierName,
-              description: `A ${rarity} modifier that transforms potions in mysterious ways.`,
-              rarity,
-            })
-            .returning();
+          const stringId = nameToStringId(modifierName);
+          
+          // Try to find existing modifier by stringId
+          let modifier = await db
+            .select()
+            .from(potionModifiers)
+            .where(eq(potionModifiers.stringId, stringId))
+            .limit(1);
+
+          // If not found, create it
+          if (!modifier[0]) {
+            const newModifier = await db
+              .insert(potionModifiers)
+              .values({
+                stringId,
+                name: modifierName,
+                description: `A ${rarity} modifier that transforms potions in mysterious ways.`,
+                rarity,
+              })
+              .returning();
+            modifier = newModifier;
+          }
 
           if (modifier[0]) {
             // Potion modifiers are stored as ingredients in inventory
@@ -223,7 +269,7 @@ export const command = {
               givenItems.push({
                 type: "Potion Modifier",
                 name: modifierName,
-                rarity,
+                rarity: modifier[0].rarity,
               });
             }
           }

@@ -68,18 +68,65 @@ export const command = {
       if (inventory.length === 0) {
         embed.setDescription("Your inventory is empty.");
       } else {
-        // Group items by type for better display
-        const itemsByType: Record<string, typeof itemsWithDetails> = {
+        // Group items by name and rarity to stack duplicates
+        // Items with same name but different rarity should be separate
+        const stackedItems = new Map<
+          string,
+          {
+            name: string;
+            quantity: number;
+            type: string;
+            rarity?: string;
+            displayType: "potion" | "ingredient" | "seed" | "grimoire" | "modifier";
+          }
+        >();
+
+        itemsWithDetails.forEach((item) => {
+          const name = item.details?.name || item.itemId;
+          const displayType =
+            item.details?.type === "potion_modifier"
+              ? "modifier"
+              : item.itemType;
+          const rarity = item.details?.rarity || "";
+          // Include rarity in key so items with same name but different rarity are separate
+          const key = `${displayType}:${name}:${rarity}`;
+
+          const existing = stackedItems.get(key);
+          if (existing) {
+            existing.quantity += item.quantity;
+          } else {
+            stackedItems.set(key, {
+              name,
+              quantity: item.quantity,
+              type: displayType,
+              rarity: item.details?.rarity,
+            });
+          }
+        });
+
+        // Group stacked items by type
+        const itemsByType: Record<
+          string,
+          Array<{
+            name: string;
+            quantity: number;
+            rarity?: string;
+          }>
+        > = {
           potion: [],
           ingredient: [],
           seed: [],
           grimoire: [],
+          modifier: [],
         };
 
-        itemsWithDetails.forEach((item) => {
-          const type = item.itemType;
-          if (itemsByType[type]) {
-            itemsByType[type].push(item);
+        stackedItems.forEach((item) => {
+          if (itemsByType[item.displayType]) {
+            itemsByType[item.displayType].push({
+              name: item.name,
+              quantity: item.quantity,
+              rarity: item.rarity,
+            });
           }
         });
 
@@ -88,56 +135,36 @@ export const command = {
         // Display potions
         if (itemsByType.potion.length > 0) {
           const potionList = itemsByType.potion
-            .map(
-              (item) =>
-                `• ${item.details?.name || item.itemId} (x${item.quantity})`,
-            )
+            .map((item) => `• ${item.name} (x${item.quantity})`)
             .join("\n");
           itemDescriptions.push(`**🧪 Potions**\n${potionList}`);
         }
 
-        // Display ingredients (including potion modifiers)
+        // Display ingredients
         if (itemsByType.ingredient.length > 0) {
-          const regularIngredients = itemsByType.ingredient.filter(
-            (item) => item.details?.type !== "potion_modifier",
-          );
-          const modifiers = itemsByType.ingredient.filter(
-            (item) => item.details?.type === "potion_modifier",
-          );
+          const ingredientList = itemsByType.ingredient
+            .map((item) => `• ${item.name} (x${item.quantity})`)
+            .join("\n");
+          itemDescriptions.push(`**🌿 Ingredients**\n${ingredientList}`);
+        }
 
-          if (regularIngredients.length > 0) {
-            const ingredientList = regularIngredients
-              .map(
-                (item) =>
-                  `• ${item.details?.name || item.itemId} (x${item.quantity})`,
-              )
-              .join("\n");
-            itemDescriptions.push(`**🌿 Ingredients**\n${ingredientList}`);
-          }
-
-          if (modifiers.length > 0) {
-            const modifierList = modifiers
-              .map((item) => {
-                const name = item.details?.name || item.itemId;
-                const rarity = item.details?.rarity
-                  ? ` [${item.details.rarity}]`
-                  : "";
-                return `• ${name}${rarity} (x${item.quantity})`;
-              })
-              .join("\n");
-            itemDescriptions.push(`**✨ Potion Modifiers**\n${modifierList}`);
-          }
+        // Display potion modifiers
+        if (itemsByType.modifier.length > 0) {
+          const modifierList = itemsByType.modifier
+            .map((item) => {
+              const rarity = item.rarity ? ` [${item.rarity}]` : "";
+              return `• ${item.name}${rarity} (x${item.quantity})`;
+            })
+            .join("\n");
+          itemDescriptions.push(`**✨ Potion Modifiers**\n${modifierList}`);
         }
 
         // Display seeds
         if (itemsByType.seed.length > 0) {
           const seedList = itemsByType.seed
             .map((item) => {
-              const name = item.details?.name || item.itemId;
-              const rarity = item.details?.rarity
-                ? ` [${item.details.rarity}]`
-                : "";
-              return `• ${name}${rarity} (x${item.quantity})`;
+              const rarity = item.rarity ? ` [${item.rarity}]` : "";
+              return `• ${item.name}${rarity} (x${item.quantity})`;
             })
             .join("\n");
           itemDescriptions.push(`**🌱 Seeds**\n${seedList}`);
@@ -146,10 +173,7 @@ export const command = {
         // Display grimoires
         if (itemsByType.grimoire.length > 0) {
           const grimoireList = itemsByType.grimoire
-            .map(
-              (item) =>
-                `• ${item.details?.name || item.itemId} (x${item.quantity})`,
-            )
+            .map((item) => `• ${item.name} (x${item.quantity})`)
             .join("\n");
           itemDescriptions.push(`**📚 Grimoires**\n${grimoireList}`);
         }
