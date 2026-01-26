@@ -132,6 +132,62 @@ export function formatAttributes(
 }
 
 /**
+ * Formats attributes object into a string with emoji prefixes, showing only non-zero attributes.
+ * Example: { spice: 5, time: 0, fizz: -3 } -> "🌶️5, 🍾-3"
+ *
+ * @param attributes - The attributes object with numeric values
+ * @returns Formatted string with emoji prefixes for non-zero attributes only
+ */
+export function formatNonZeroAttributes(
+  attributes: Record<string, number>,
+): string {
+  const nonZeroEntries = Object.entries(attributes).filter(
+    ([, value]) => value !== 0,
+  );
+  if (nonZeroEntries.length === 0) {
+    return "No attributes";
+  }
+  return nonZeroEntries
+    .map(([key, value]) => {
+      const emoji = ATTRIBUTE_EMOJIS[key.toLowerCase()] || key;
+      return `${emoji}${value}`;
+    })
+    .join(", ");
+}
+
+/**
+ * Formats the field value for an inventory item based on its type.
+ * Used when displaying items as individual fields in embeds.
+ *
+ * @param itemDetails - The item details (can be null for unknown items)
+ * @param quantity - The quantity of the item
+ * @returns Formatted string for the field value
+ */
+export function formatItemFieldValue(
+  itemDetails: ItemDetails | null,
+  quantity: number,
+): string {
+  if (!itemDetails) {
+    return `Quantity: x${quantity}`;
+  }
+
+  const parts: string[] = [`Quantity: x${quantity}`];
+
+  // For ingredients, show attributes
+  if (itemDetails.type === "ingredient" && itemDetails.attributes) {
+    const attributeStr = formatNonZeroAttributes(itemDetails.attributes);
+    parts.push(`Attributes: ${attributeStr}`);
+  }
+
+  // For potions, show quality if available
+  if (itemDetails.type === "potion" && itemDetails.quality !== undefined) {
+    parts.push(`Quality: ${itemDetails.quality}`);
+  }
+
+  return parts.join("\n");
+}
+
+/**
  * Adds a potentially long text value to an embed, splitting it across
  * multiple fields if it exceeds Discord's 1024 character limit per field.
  *

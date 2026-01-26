@@ -13,8 +13,8 @@ import {
 } from "../../services/item-service.js";
 import type { InventorySlot } from "../../db/schema/users.js";
 import {
-  addLongField,
-  getItemDisplayName,
+  formatItemFieldValue,
+  formatItemNameByTier,
 } from "../utils/embed-helpers.js";
 import {
   handlePaginationButton,
@@ -145,45 +145,24 @@ function buildPageEmbed(
     };
     embed.setDescription(`You have no ${pageLabels[pageType]} in your inventory.`);
   } else {
-    let itemList: string;
-    let fieldName: string;
-
-    switch (pageType) {
-      case "ingredients":
-        itemList = items
-          .map((item) =>
-            getItemDisplayName(item.details, item.quantity, true, false, true),
+    // Create individual fields for each item
+    for (const item of items) {
+      const itemName = item.details
+        ? formatItemNameByTier(
+            item.details.name,
+            item.details.rarity || null,
+            item.details.emoji || null,
           )
-          .join("\n");
-        fieldName = "🌿 Ingredients";
-        break;
-      case "potions":
-        itemList = items
-          .map((item) =>
-            getItemDisplayName(item.details, item.quantity, true, false, true),
-          )
-          .join("\n");
-        fieldName = "🧪 Potions";
-        break;
-      case "modifiers":
-        itemList = items
-          .map((item) =>
-            getItemDisplayName(item.details, item.quantity, true, true, true),
-          )
-          .join("\n");
-        fieldName = "✨ Special Ingredients";
-        break;
-      case "seeds":
-        itemList = items
-          .map((item) =>
-            getItemDisplayName(item.details, item.quantity, true, true, true),
-          )
-          .join("\n");
-        fieldName = "🌱 Seeds";
-        break;
+        : "Unknown Item";
+      
+      const fieldValue = formatItemFieldValue(item.details, item.quantity);
+      
+      embed.addFields({
+        name: itemName,
+        value: fieldValue,
+        inline: true,
+      });
     }
-
-    addLongField(embed, fieldName, itemList);
   }
 
   return embed;
