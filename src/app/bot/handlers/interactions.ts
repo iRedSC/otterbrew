@@ -2,6 +2,7 @@ import {
   type Interaction,
   InteractionType,
   type ChatInputCommandInteraction,
+  type ButtonInteraction,
   MessageFlags,
 } from "discord.js";
 import { readdirSync } from "fs";
@@ -18,7 +19,12 @@ interface Command {
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
 
+interface ButtonHandler {
+  handleButton: (interaction: ButtonInteraction) => Promise<void>;
+}
+
 const commands = new Map<string, Command>();
+const buttonHandlers = new Map<string, ButtonHandler>();
 
 // Load all commands
 const commandsPath = path.join(__dirname, "..", "commands");
@@ -33,6 +39,11 @@ await Promise.all(
     if (command?.data?.name && command?.execute) {
       commands.set(command.data.name, command);
     }
+    // Check if command has button handler
+    if (command?.handleButton) {
+      const handlerId = command.data?.name || file.replace(".ts", "");
+      buttonHandlers.set(handlerId, command);
+    }
   }),
 );
 
@@ -43,6 +54,58 @@ export async function handleInteraction(
     `[Interaction] Received interaction: ${interaction.type} from user ${interaction.user?.id}`,
   );
 
+  // Handle button interactions
+  if (interaction.type === InteractionType.MessageComponent) {
+    if (interaction.isButton()) {
+      console.log(`[Interaction] Processing button: ${interaction.customId}`);
+      
+      // Extract handler ID from customId (format: "handler:userId:data")
+      const customIdParts = interaction.customId.split(":");
+      const handlerId = customIdParts[0];
+      
+      const handler = buttonHandlers.get(handlerId);
+      if (handler) {
+        try {
+          await handler.handleButton(interaction);
+          console.log(`[Interaction] Button handler ${handlerId} completed successfully`);
+        } catch (error) {
+          console.error(`[Interaction] Error executing button handler ${handlerId}:`, error);
+          if (error instanceof Error) {
+            console.error(`[Interaction] Error stack:`, error.stack);
+          }
+          try {
+            if (interaction.replied || interaction.deferred) {
+              await interaction.followUp({
+                content: "❌ An error occurred while processing this button.",
+                flags: MessageFlags.Ephemeral,
+              });
+            } else {
+              await interaction.reply({
+                content: "❌ An error occurred while processing this button.",
+                flags: MessageFlags.Ephemeral,
+              });
+            }
+          } catch (replyError) {
+            console.error(`[Interaction] Failed to send error reply:`, replyError);
+          }
+        }
+      } else {
+        console.warn(`[Interaction] No handler found for button: ${handlerId}`);
+        try {
+          await interaction.reply({
+            content: "❌ This button is no longer valid.",
+            flags: MessageFlags.Ephemeral,
+          });
+        } catch (replyError) {
+          // Button might have already been handled or expired
+          console.error(`[Interaction] Failed to send error reply:`, replyError);
+        }
+      }
+      return;
+    }
+  }
+
+  // Handle slash commands
   if (interaction.type !== InteractionType.ApplicationCommand) {
     console.log(`[Interaction] Not an application command, ignoring`);
     return;
