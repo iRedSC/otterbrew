@@ -269,10 +269,32 @@ export const command = {
   execute: async (interaction: ChatInputCommandInteraction): Promise<void> => {
     console.log(`[Inventory] Command started for user ${interaction.user.id}`);
 
+    let deferred = false;
     try {
+      // Check if interaction is still valid
+      if (interaction.replied || interaction.deferred) {
+        console.warn(`[Inventory] Interaction already replied/deferred`);
+        return;
+      }
+
       console.log(`[Inventory] Deferring reply...`);
-      await interaction.deferReply();
-      console.log(`[Inventory] Reply deferred, fetching user data...`);
+      try {
+        await interaction.deferReply();
+        deferred = true;
+        console.log(`[Inventory] Reply deferred successfully`);
+      } catch (deferError) {
+        console.error("[Inventory] Failed to defer reply:", deferError);
+        // If defer fails, the interaction might be invalid - check state
+        if (interaction.replied || interaction.deferred) {
+          console.log("[Inventory] Interaction already handled, aborting");
+          return;
+        }
+        // If we can't defer, we need to process quickly and reply
+        // But this is risky - interactions expire in 3 seconds
+        // For now, just throw and let error handler deal with it
+        throw deferError;
+      }
+      console.log(`[Inventory] Fetching user data...`);
 
       const user = await getOrCreateUser(interaction.user.id);
       console.log(`[Inventory] User data retrieved:`, {
@@ -376,11 +398,23 @@ export const command = {
         availablePages.length > 0 ? availablePages : ["ingredients"],
       );
 
-      console.log(`[Inventory] Sending editReply...`);
-      await interaction.editReply({
-        embeds: [embed],
-        components: availablePages.length > 1 ? [buttons] : [],
-      });
+      console.log(`[Inventory] Sending response...`);
+      if (deferred && !interaction.replied) {
+        await interaction.editReply({
+          embeds: [embed],
+          components: availablePages.length > 1 ? [buttons] : [],
+        });
+      } else if (interaction.replied) {
+        await interaction.followUp({
+          embeds: [embed],
+          components: availablePages.length > 1 ? [buttons] : [],
+        });
+      } else {
+        await interaction.reply({
+          embeds: [embed],
+          components: availablePages.length > 1 ? [buttons] : [],
+        });
+      }
       console.log(`[Inventory] Reply sent successfully`);
     } catch (error) {
       console.error("[Inventory] Error in /inventory command:", error);
@@ -389,11 +423,26 @@ export const command = {
         console.error("[Inventory] Error stack:", error.stack);
       }
       try {
-        await interaction.editReply({
-          content: "❌ An error occurred while fetching your inventory.",
-        });
+        if (deferred) {
+          await interaction.editReply({
+            content: "❌ An error occurred while fetching your inventory.",
+          });
+        } else if (!interaction.replied) {
+          await interaction.reply({
+            content: "❌ An error occurred while fetching your inventory.",
+            flags: MessageFlags.Ephemeral,
+          });
+        } else {
+          await interaction.followUp({
+            content: "❌ An error occurred while fetching your inventory.",
+            flags: MessageFlags.Ephemeral,
+          });
+        }
       } catch (replyError) {
         console.error("[Inventory] Failed to send error reply:", replyError);
+        if (replyError instanceof Error) {
+          console.error("[Inventory] Reply error message:", replyError.message);
+        }
       }
     }
   },
