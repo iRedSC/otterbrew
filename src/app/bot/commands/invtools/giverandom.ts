@@ -110,6 +110,7 @@ export async function handleGiverandom(
       type: string;
       name: string;
       rarity?: string;
+      emoji?: string | null;
     }> = [];
 
     // Give seeds
@@ -153,6 +154,7 @@ export async function handleGiverandom(
               type: "Seed",
               name: seedName,
               rarity: seed[0].rarity,
+              emoji: seed[0].emoji,
             });
           }
         }
@@ -199,6 +201,7 @@ export async function handleGiverandom(
             givenItems.push({
               type: "Ingredient",
               name: ingredientName,
+              emoji: ingredient[0].emoji,
             });
           }
         }
@@ -247,6 +250,7 @@ export async function handleGiverandom(
               type: "Potion Modifier",
               name: modifierName,
               rarity: modifier[0].rarity,
+              emoji: modifier[0].emoji,
             });
           }
         }
@@ -266,7 +270,11 @@ export async function handleGiverandom(
     if (givenItems.length > 0) {
       const itemList = givenItems
         .map((item) => {
-          const formattedName = formatItemNameByTier(item.name, item.rarity);
+          const formattedName = formatItemNameByTier(
+            item.name,
+            item.rarity,
+            item.emoji,
+          );
           return `• ${formattedName} (${item.type})`;
         })
         .join("\n");

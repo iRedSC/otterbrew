@@ -16,6 +16,7 @@ export const potionModifiers = pgTable(
     name: varchar("name", { length: 100 }).notNull(),
     description: text("description").notNull(),
     rarity: varchar("rarity", { length: 20 }).notNull(),
+    emoji: varchar("emoji", { length: 10 }),
   },
   (table) => ({
     stringIdIdx: index("potion_modifiers_string_id_idx").on(table.stringId),

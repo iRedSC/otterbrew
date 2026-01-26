@@ -29,6 +29,13 @@
       "when": 1769386440369,
       "tag": "0003_wealthy_tempest",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1769387483400,
+      "tag": "0004_fuzzy_black_tarantula",
+      "breakpoints": true
     }
   ]
 }

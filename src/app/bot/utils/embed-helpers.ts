@@ -13,32 +13,36 @@ const MAX_FIELD_LENGTH = 1000;
  *
  * @param name - The item name to format
  * @param tier - The rarity tier (optional)
- * @returns The formatted name with markdown
+ * @param emoji - The emoji to display before the name (optional)
+ * @returns The formatted name with markdown and emoji
  */
 export function formatItemNameByTier(
   name: string,
   tier?: RarityTier | string | null,
+  emoji?: string | null,
 ): string {
+  const emojiPrefix = emoji ? `${emoji} ` : "";
+  
   if (!tier) {
-    return name;
+    return `${emojiPrefix}${name}`;
   }
 
   const normalizedTier = tier.toLowerCase();
 
   switch (normalizedTier) {
     case "basic":
-      return `*${name}*`; // italic
+      return `${emojiPrefix}*${name}*`; // italic
     case "uncommon":
-      return `__${name}__`; // underline
+      return `${emojiPrefix}__${name}__`; // underline
     case "rare":
-      return `**${name}**`; // bold
+      return `${emojiPrefix}**${name}**`; // bold
     case "epic":
-      return `*__${name}__*`; // italic underline
+      return `${emojiPrefix}*__${name}__*`; // italic underline
     case "legendary":
     case "mythic":
-      return `***__${name}__***`; // italic bold underline
+      return `${emojiPrefix}***__${name}__***`; // italic bold underline
     default:
-      return name;
+      return `${emojiPrefix}${name}`;
   }
 }
 

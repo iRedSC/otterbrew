@@ -54,6 +54,7 @@ export interface ItemDetails {
   description: string;
   type: "seed" | "ingredient" | "potion_modifier";
   rarity?: string;
+  emoji?: string | null;
   attributes?: {
     spice: number;
     time: number;
@@ -90,6 +91,7 @@ export async function getItemDetails(
           description: seed[0].description,
           type: "seed",
           rarity: seed[0].rarity,
+          emoji: seed[0].emoji,
         };
       }
     } else if (itemType === "ingredient") {
@@ -111,6 +113,7 @@ export async function getItemDetails(
           description: modifier[0].description,
           type: "potion_modifier",
           rarity: modifier[0].rarity,
+          emoji: modifier[0].emoji,
         };
       }
       // Otherwise, it's a regular ingredient
@@ -131,6 +134,7 @@ export async function getItemDetails(
           description: ingredient[0].description,
           type: "ingredient",
           attributes: ingredient[0].attributes as Ingredient["attributes"],
+          emoji: ingredient[0].emoji,
         };
       }
     } else if (itemType === "grimoire") {
@@ -180,6 +184,7 @@ export async function findItemByStringId(
           description: seed[0].description,
           type: "seed",
           rarity: seed[0].rarity,
+          emoji: seed[0].emoji,
         },
       };
     }
@@ -200,6 +205,7 @@ export async function findItemByStringId(
           description: modifier[0].description,
           type: "potion_modifier",
           rarity: modifier[0].rarity,
+          emoji: modifier[0].emoji,
         },
       };
     }
@@ -220,6 +226,7 @@ export async function findItemByStringId(
           description: ingredient[0].description,
           type: "ingredient",
           attributes: ingredient[0].attributes as Ingredient["attributes"],
+          emoji: ingredient[0].emoji,
         },
       };
     }

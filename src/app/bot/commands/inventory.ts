@@ -102,6 +102,7 @@ export const command = {
             quantity: number;
             type: "potion" | "ingredient" | "seed" | "grimoire" | "modifier";
             rarity?: string;
+            emoji?: string | null;
           }
         >();
 
@@ -125,6 +126,7 @@ export const command = {
               quantity: item.quantity,
               type: displayType,
               rarity: item.details?.rarity,
+              emoji: item.details?.emoji,
             });
           }
         });
@@ -146,6 +148,7 @@ export const command = {
             name: string;
             quantity: number;
             rarity?: string;
+            emoji?: string | null;
           }>
         > = {
           potion: [],
@@ -161,6 +164,7 @@ export const command = {
               name: item.name,
               quantity: item.quantity,
               rarity: item.rarity,
+              emoji: item.emoji,
             });
           }
         });
@@ -178,7 +182,10 @@ export const command = {
         // Display ingredients
         if (itemsByType.ingredient.length > 0) {
           const ingredientList = itemsByType.ingredient
-            .map((item) => `• ${item.name} (x${item.quantity})`)
+            .map((item) => {
+              const emojiPrefix = item.emoji ? `${item.emoji} ` : "";
+              return `• ${emojiPrefix}${item.name} (x${item.quantity})`;
+            })
             .join("\n");
           itemDescriptions.push(`**🌿 Ingredients**\n${ingredientList}`);
         }
@@ -190,6 +197,7 @@ export const command = {
               const formattedName = formatItemNameByTier(
                 item.name,
                 item.rarity,
+                item.emoji,
               );
               return `• ${formattedName} (x${item.quantity})`;
             })
@@ -204,6 +212,7 @@ export const command = {
               const formattedName = formatItemNameByTier(
                 item.name,
                 item.rarity,
+                item.emoji,
               );
               return `• ${formattedName} (x${item.quantity})`;
             })
