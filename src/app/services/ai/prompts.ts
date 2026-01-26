@@ -429,29 +429,81 @@ export function getIngredientGenerationPrompt(
   const flavors = getRandomFlavors(3);
   const attributeDescriptions: string[] = [];
   
+  // Mapping of negative attributes to their positive opposites
+  const oppositeAttributes: Record<string, { name: string; description: string }> = {
+    spice: { name: "mildness (or coolness)", description: "cooling/calming properties" },
+    time: { name: "stasis", description: "timelessness, no change" },
+    fizz: { name: "flatness", description: "stillness, lack of effervescence" },
+    zest: { name: "dullness (or apathy)", description: "lack of energy/vitality" },
+    bane: { name: "boone (or remedy)", description: "healing/beneficial properties" },
+    fantasy: { name: "reality", description: "mundane/grounded properties" },
+    chaos: { name: "order", description: "predictability/structure" },
+    darkness: { name: "light", description: "illumination/clarity properties" },
+  };
+  
   if (input.attributes.spice !== 0) {
-    attributeDescriptions.push(`spice: ${input.attributes.spice} (heat/flame properties)`);
+    if (input.attributes.spice < 0) {
+      const opposite = oppositeAttributes.spice!;
+      attributeDescriptions.push(`${opposite.name}: ${Math.abs(input.attributes.spice)} (${opposite.description})`);
+    } else {
+      attributeDescriptions.push(`spice: ${input.attributes.spice} (heat/flame properties)`);
+    }
   }
   if (input.attributes.time !== 0) {
-    attributeDescriptions.push(`time: ${input.attributes.time} (temporal properties)`);
+    if (input.attributes.time < 0) {
+      const opposite = oppositeAttributes.time!;
+      attributeDescriptions.push(`${opposite.name}: ${Math.abs(input.attributes.time)} (${opposite.description})`);
+    } else {
+      attributeDescriptions.push(`time: ${input.attributes.time} (temporal properties)`);
+    }
   }
   if (input.attributes.fizz !== 0) {
-    attributeDescriptions.push(`fizz: ${input.attributes.fizz} (effervescence/bubbles)`);
+    if (input.attributes.fizz < 0) {
+      const opposite = oppositeAttributes.fizz!;
+      attributeDescriptions.push(`${opposite.name}: ${Math.abs(input.attributes.fizz)} (${opposite.description})`);
+    } else {
+      attributeDescriptions.push(`fizz: ${input.attributes.fizz} (effervescence/bubbles)`);
+    }
   }
   if (input.attributes.zest !== 0) {
-    attributeDescriptions.push(`zest: ${input.attributes.zest} (energy/vitality)`);
+    if (input.attributes.zest < 0) {
+      const opposite = oppositeAttributes.zest!;
+      attributeDescriptions.push(`${opposite.name}: ${Math.abs(input.attributes.zest)} (${opposite.description})`);
+    } else {
+      attributeDescriptions.push(`zest: ${input.attributes.zest} (energy/vitality)`);
+    }
   }
   if (input.attributes.bane !== 0) {
-    attributeDescriptions.push(`bane: ${input.attributes.bane} (negative/corrupting properties)`);
+    if (input.attributes.bane < 0) {
+      const opposite = oppositeAttributes.bane!;
+      attributeDescriptions.push(`${opposite.name}: ${Math.abs(input.attributes.bane)} (${opposite.description})`);
+    } else {
+      attributeDescriptions.push(`bane: ${input.attributes.bane} (negative/corrupting properties)`);
+    }
   }
   if (input.attributes.fantasy !== 0) {
-    attributeDescriptions.push(`fantasy: ${input.attributes.fantasy} (magical/mystical properties)`);
+    if (input.attributes.fantasy < 0) {
+      const opposite = oppositeAttributes.fantasy!;
+      attributeDescriptions.push(`${opposite.name}: ${Math.abs(input.attributes.fantasy)} (${opposite.description})`);
+    } else {
+      attributeDescriptions.push(`fantasy: ${input.attributes.fantasy} (magical/mystical properties)`);
+    }
   }
   if (input.attributes.chaos !== 0) {
-    attributeDescriptions.push(`chaos: ${input.attributes.chaos} (unpredictability)`);
+    if (input.attributes.chaos < 0) {
+      const opposite = oppositeAttributes.chaos!;
+      attributeDescriptions.push(`${opposite.name}: ${Math.abs(input.attributes.chaos)} (${opposite.description})`);
+    } else {
+      attributeDescriptions.push(`chaos: ${input.attributes.chaos} (unpredictability)`);
+    }
   }
   if (input.attributes.darkness !== 0) {
-    attributeDescriptions.push(`darkness: ${input.attributes.darkness} (shadow/void properties)`);
+    if (input.attributes.darkness < 0) {
+      const opposite = oppositeAttributes.darkness!;
+      attributeDescriptions.push(`${opposite.name}: ${Math.abs(input.attributes.darkness)} (${opposite.description})`);
+    } else {
+      attributeDescriptions.push(`darkness: ${input.attributes.darkness} (shadow/void properties)`);
+    }
   }
 
   return `You are a creative assistant for a fantasy alchemy game called Otterbrew. Generate a unique ingredient that players can use to brew potions.
@@ -465,12 +517,10 @@ Generate an ingredient with:
 - description: A vivid description of the ingredient (10-100 characters) that matches the given attributes and rarity
 - emoji: An emoji that represents the ingredient (single emoji, max 10 chars)
 
-The ingredient should fit a fantasy alchemy theme. Make them clean and clear. Do not include the attributes in the name or description. The name and description should reflect the ingredient's attributes and ${input.rarity} rarity tier.
+The ingredient should be recognizable and something that could exist in the real world. Make them clean and clear. Do not include the attributes in the name or description. The name and description should reflect the ingredient's attributes and ${input.rarity} rarity tier.
 Incorporate these flavor themes: ${flavors.join(", ")}.
 
 IMPORTANT - DO NOT INCLUDE THE ATTRIBUTES IN THE NAME OR DESCRIPTION. This is very important.
-
-Important - Negative attributes have the opposite effect of positive attributes. For example, a 100 spice attribute means the ingredient is extremely spicy, while a 100 spice attribute means the ingredient is extremely cold
 
 
 Name examples:
