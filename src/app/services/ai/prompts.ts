@@ -37,6 +37,7 @@ Generate an ingredient with:
 - attributes: An object with 1-3 attributes as integers (each between -100 and 100) Set all the rest to 0.
 - emoji: An optional emoji that represents the ingredient (single emoji, max 10 chars)
 
+Do not include more than 3 attributes. Set the rest to 0.
 The ingredient should fit a fantasy alchemy theme. Be creative and unique. The attributes should make sense for the ingredient's theme.
 
 Return ONLY valid JSON in this exact format:
