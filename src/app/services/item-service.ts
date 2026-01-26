@@ -111,6 +111,8 @@ export async function getItemDetails(
         found: !!specialIngredient[0],
         specialIngredientId: specialIngredient[0]?.id,
         specialIngredientName: specialIngredient[0]?.name,
+        emoji: specialIngredient[0]?.emoji,
+        emojiType: typeof specialIngredient[0]?.emoji,
       });
       if (specialIngredient[0]) {
         return {
