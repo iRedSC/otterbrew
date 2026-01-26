@@ -1,6 +1,9 @@
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { users } from "./schema/users.js";
+import { seeds } from "./schema/seeds.js";
+import { ingredients } from "./schema/ingredients.js";
+import { potionModifiers } from "./schema/potion-modifiers.js";
 
 console.log("[DB] Initializing database connection...");
 const databaseUrl = process.env.DATABASE_URL;
@@ -22,5 +25,7 @@ export const postgresClient = postgres(databaseUrl, {
 });
 
 console.log("[DB] Creating Drizzle instance...");
-export const db = drizzle(postgresClient, { schema: { users } });
+export const db = drizzle(postgresClient, {
+  schema: { users, seeds, ingredients, potionModifiers },
+});
 console.log("[DB] Database connection initialized successfully");

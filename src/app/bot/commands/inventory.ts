@@ -4,6 +4,7 @@ import {
   EmbedBuilder,
 } from "discord.js";
 import { getOrCreateUser } from "../../services/user-service.js";
+import { getInventoryItems } from "../../services/item-service.js";
 import type { InventorySlot } from "../../db/schema/users.js";
 
 export const command = {
@@ -38,6 +39,9 @@ export const command = {
       const usedSlots = inventory.length;
       const emptySlots = user.maxInventorySlots - usedSlots;
 
+      // Fetch item details
+      const itemsWithDetails = await getInventoryItems(inventory);
+
       console.log(`[Inventory] Building embed...`);
       const embed = new EmbedBuilder()
         .setTitle("🎒 Inventory")
@@ -65,17 +69,17 @@ export const command = {
         embed.setDescription("Your inventory is empty.");
       } else {
         // Group items by type for better display
-        const itemsByType: Record<string, InventorySlot[]> = {
+        const itemsByType: Record<string, typeof itemsWithDetails> = {
           potion: [],
           ingredient: [],
           seed: [],
           grimoire: [],
         };
 
-        inventory.forEach((slot) => {
-          const type = slot.itemType;
+        itemsWithDetails.forEach((item) => {
+          const type = item.itemType;
           if (itemsByType[type]) {
-            itemsByType[type].push(slot);
+            itemsByType[type].push(item);
           }
         });
 
@@ -85,31 +89,56 @@ export const command = {
         if (itemsByType.potion.length > 0) {
           const potionList = itemsByType.potion
             .map(
-              (slot) =>
-                `• ${slot.itemId} (x${slot.quantity})`,
+              (item) =>
+                `• ${item.details?.name || item.itemId} (x${item.quantity})`,
             )
             .join("\n");
           itemDescriptions.push(`**🧪 Potions**\n${potionList}`);
         }
 
-        // Display ingredients
+        // Display ingredients (including potion modifiers)
         if (itemsByType.ingredient.length > 0) {
-          const ingredientList = itemsByType.ingredient
-            .map(
-              (slot) =>
-                `• ${slot.itemId} (x${slot.quantity})`,
-            )
-            .join("\n");
-          itemDescriptions.push(`**🌿 Ingredients**\n${ingredientList}`);
+          const regularIngredients = itemsByType.ingredient.filter(
+            (item) => item.details?.type !== "potion_modifier",
+          );
+          const modifiers = itemsByType.ingredient.filter(
+            (item) => item.details?.type === "potion_modifier",
+          );
+
+          if (regularIngredients.length > 0) {
+            const ingredientList = regularIngredients
+              .map(
+                (item) =>
+                  `• ${item.details?.name || item.itemId} (x${item.quantity})`,
+              )
+              .join("\n");
+            itemDescriptions.push(`**🌿 Ingredients**\n${ingredientList}`);
+          }
+
+          if (modifiers.length > 0) {
+            const modifierList = modifiers
+              .map((item) => {
+                const name = item.details?.name || item.itemId;
+                const rarity = item.details?.rarity
+                  ? ` [${item.details.rarity}]`
+                  : "";
+                return `• ${name}${rarity} (x${item.quantity})`;
+              })
+              .join("\n");
+            itemDescriptions.push(`**✨ Potion Modifiers**\n${modifierList}`);
+          }
         }
 
         // Display seeds
         if (itemsByType.seed.length > 0) {
           const seedList = itemsByType.seed
-            .map(
-              (slot) =>
-                `• ${slot.itemId} (x${slot.quantity})`,
-            )
+            .map((item) => {
+              const name = item.details?.name || item.itemId;
+              const rarity = item.details?.rarity
+                ? ` [${item.details.rarity}]`
+                : "";
+              return `• ${name}${rarity} (x${item.quantity})`;
+            })
             .join("\n");
           itemDescriptions.push(`**🌱 Seeds**\n${seedList}`);
         }
@@ -118,8 +147,8 @@ export const command = {
         if (itemsByType.grimoire.length > 0) {
           const grimoireList = itemsByType.grimoire
             .map(
-              (slot) =>
-                `• ${slot.itemId} (x${slot.quantity})`,
+              (item) =>
+                `• ${item.details?.name || item.itemId} (x${item.quantity})`,
             )
             .join("\n");
           itemDescriptions.push(`**📚 Grimoires**\n${grimoireList}`);

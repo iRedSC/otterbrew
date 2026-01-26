@@ -15,6 +15,13 @@
       "when": 1769385499050,
       "tag": "0001_whole_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769385905393,
+      "tag": "0002_mute_multiple_man",
+      "breakpoints": true
     }
   ]
 }
