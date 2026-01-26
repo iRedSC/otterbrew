@@ -156,27 +156,51 @@ export function formatNonZeroAttributes(
 }
 
 /**
+ * Formats attributes as emojis only, with curly brackets around negative attributes.
+ * Example: { spice: 5, time: 0, fizz: -3 } -> "🌶️ {🍾}"
+ *
+ * @param attributes - The attributes object with numeric values
+ * @returns Formatted string with emojis only, negative ones in curly brackets
+ */
+export function formatAttributeEmojis(
+  attributes: Record<string, number>,
+): string {
+  const nonZeroEntries = Object.entries(attributes).filter(
+    ([, value]) => value !== 0,
+  );
+  if (nonZeroEntries.length === 0) {
+    return "";
+  }
+  return nonZeroEntries
+    .map(([key, value]) => {
+      const emoji = ATTRIBUTE_EMOJIS[key.toLowerCase()] || key;
+      return value < 0 ? `{${emoji}}` : emoji;
+    })
+    .join(" ");
+}
+
+/**
  * Formats the field value for an inventory item based on its type.
  * Used when displaying items as individual fields in embeds.
  *
  * @param itemDetails - The item details (can be null for unknown items)
- * @param quantity - The quantity of the item
  * @returns Formatted string for the field value
  */
 export function formatItemFieldValue(
   itemDetails: ItemDetails | null,
-  quantity: number,
 ): string {
   if (!itemDetails) {
-    return `Quantity: x${quantity}`;
+    return "";
   }
 
-  const parts: string[] = [`Quantity: x${quantity}`];
+  const parts: string[] = [];
 
-  // For ingredients, show attributes
+  // For ingredients, show attribute emojis
   if (itemDetails.type === "ingredient" && itemDetails.attributes) {
-    const attributeStr = formatNonZeroAttributes(itemDetails.attributes);
-    parts.push(`Attributes: ${attributeStr}`);
+    const attributeStr = formatAttributeEmojis(itemDetails.attributes);
+    if (attributeStr) {
+      parts.push(attributeStr);
+    }
   }
 
   // For potions, show quality if available
@@ -184,7 +208,7 @@ export function formatItemFieldValue(
     parts.push(`Quality: ${itemDetails.quality}`);
   }
 
-  return parts.join("\n");
+  return parts.join("\n") || "\u200b"; // Zero-width space if empty
 }
 
 /**

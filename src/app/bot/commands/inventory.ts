@@ -15,6 +15,7 @@ import type { InventorySlot } from "../../db/schema/users.js";
 import {
   formatItemFieldValue,
   formatItemNameByTier,
+  getItemDisplayName,
 } from "../utils/embed-helpers.js";
 import {
   handlePaginationButton,
@@ -147,15 +148,16 @@ function buildPageEmbed(
   } else {
     // Create individual fields for each item
     for (const item of items) {
-      const itemName = item.details
-        ? formatItemNameByTier(
-            item.details.name,
-            item.details.rarity || null,
-            item.details.emoji || null,
-          )
-        : "Unknown Item";
+      // Include quantity in the field name
+      const itemName = getItemDisplayName(
+        item.details,
+        item.quantity,
+        true, // showAmount
+        true, // formatRarity
+        true, // showEmoji
+      );
       
-      const fieldValue = formatItemFieldValue(item.details, item.quantity);
+      const fieldValue = formatItemFieldValue(item.details);
       
       embed.addFields({
         name: itemName,
