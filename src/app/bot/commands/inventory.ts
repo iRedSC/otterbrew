@@ -89,7 +89,15 @@ function buildPageEmbed(
     )
     .setTimestamp();
 
-  const items = itemsByType[pageType === "modifiers" ? "modifier" : pageType];
+  // Map PageType (plural) to GroupedItems key (singular)
+  const typeMap: Record<PageType, keyof GroupedItems> = {
+    ingredients: "ingredient",
+    potions: "potion",
+    modifiers: "modifier",
+    seeds: "seed",
+  };
+
+  const items = itemsByType[typeMap[pageType]] || [];
   
   if (items.length === 0) {
     const pageLabels: Record<PageType, string> = {
