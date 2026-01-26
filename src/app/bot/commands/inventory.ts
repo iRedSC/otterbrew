@@ -97,9 +97,8 @@ export const command = {
           {
             name: string;
             quantity: number;
-            type: string;
+            type: "potion" | "ingredient" | "seed" | "grimoire" | "modifier";
             rarity?: string;
-            displayType: "potion" | "ingredient" | "seed" | "grimoire" | "modifier";
           }
         >();
 
@@ -154,8 +153,8 @@ export const command = {
         };
 
         stackedItems.forEach((item) => {
-          if (itemsByType[item.displayType]) {
-            itemsByType[item.displayType].push({
+          if (itemsByType[item.type]) {
+            itemsByType[item.type].push({
               name: item.name,
               quantity: item.quantity,
               rarity: item.rarity,
