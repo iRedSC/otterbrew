@@ -17,6 +17,16 @@ const ATTRIBUTE_EMOJIS: Record<string, string> = {
 } as const;
 
 /**
+ * Default emojis for item types when emoji is not set in database
+ */
+const DEFAULT_ITEM_EMOJIS: Record<string, string> = {
+  seed: "🌱",
+  ingredient: "🌿",
+  special_ingredient: "✨",
+  potion: "🧪",
+} as const;
+
+/**
  * Discord embed field value limit is 1024 characters.
  * We use 1000 to leave a small buffer.
  */
@@ -90,7 +100,13 @@ export function getItemDisplayName(
   }
 
   const name = itemDetails.name;
-  const emoji = showEmoji ? itemDetails.emoji : null;
+  let emoji: string | null = null;
+  
+  if (showEmoji) {
+    // Use emoji from database if available, otherwise use default for item type
+    emoji = itemDetails.emoji || DEFAULT_ITEM_EMOJIS[itemDetails.type] || null;
+  }
+  
   const tier = formatRarity ? itemDetails.rarity : null;
 
   // Format the name with tier and emoji
