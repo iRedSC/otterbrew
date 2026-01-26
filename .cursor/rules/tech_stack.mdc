@@ -16,6 +16,7 @@ Required vars in `.env`:
 - `BOT_TOKEN` - Discord bot token
 - `CLIENT_ID` - Discord application client ID
 - `DATABASE_URL` - PostgreSQL connection string
+- `OPENAI_API_KEY` - OpenAI api key.
 
 Never hardcode these values. Use `process.env.VAR_NAME` with runtime validation.
 

@@ -4,6 +4,9 @@ import { users } from "./schema/users.js";
 import { seeds } from "./schema/seeds.js";
 import { ingredients } from "./schema/ingredients.js";
 import { potionModifiers } from "./schema/potion-modifiers.js";
+import { potions } from "./schema/potions.js";
+import { potionRecipes } from "./schema/potion-recipes.js";
+import { potionItems } from "./schema/potion-items.js";
 
 let _postgresClient: postgres.Sql | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -34,7 +37,15 @@ function initializeDatabase(): void {
 
   console.log("[DB] Creating Drizzle instance...");
   _db = drizzle(_postgresClient, {
-    schema: { users, seeds, ingredients, potionModifiers },
+    schema: {
+      users,
+      seeds,
+      ingredients,
+      potionModifiers,
+      potions,
+      potionRecipes,
+      potionItems,
+    },
   });
   console.log("[DB] Database connection initialized successfully");
 }

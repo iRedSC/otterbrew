@@ -4,9 +4,13 @@ import { users, type InventorySlot } from "../db/schema/users.js";
 import { seeds } from "../db/schema/seeds.js";
 import { ingredients } from "../db/schema/ingredients.js";
 import { potionModifiers } from "../db/schema/potion-modifiers.js";
+import { potions } from "../db/schema/potions.js";
+import { potionItems } from "../db/schema/potion-items.js";
 import type { Seed } from "../db/schema/seeds.js";
 import type { Ingredient } from "../db/schema/ingredients.js";
 import type { PotionModifier } from "../db/schema/potion-modifiers.js";
+import type { Potion } from "../db/schema/potions.js";
+import type { PotionItem } from "../db/schema/potion-items.js";
 
 /**
  * Parses inventory from various formats (array, string, object) into InventorySlot[]
@@ -52,7 +56,7 @@ export interface ItemDetails {
   id: string;
   name: string;
   description: string;
-  type: "seed" | "ingredient" | "potion_modifier";
+  type: "seed" | "ingredient" | "potion_modifier" | "potion";
   rarity?: string;
   emoji?: string | null;
   attributes?: {
@@ -65,6 +69,8 @@ export interface ItemDetails {
     chaos: number;
     darkness: number;
   };
+  quality?: number;
+  effects?: Potion["effects"];
 }
 
 export async function getItemDetails(
@@ -142,7 +148,43 @@ export async function getItemDetails(
       console.log(`[ItemService] Grimoire type not yet implemented`);
       return null;
     } else if (itemType === "potion") {
-      console.log(`[ItemService] Potion type not yet implemented in getItemDetails`);
+      // For potions, itemId references PotionItem.id, not Potion.id
+      const potionItem = await db
+        .select()
+        .from(potionItems)
+        .where(eq(potionItems.id, itemId))
+        .limit(1);
+      console.log(`[ItemService] PotionItem query result:`, {
+        found: !!potionItem[0],
+        potionItemId: potionItem[0]?.id,
+        potionId: potionItem[0]?.potionId,
+        quality: potionItem[0]?.quality,
+      });
+      if (potionItem[0]) {
+        // Get the potion definition
+        const potion = await db
+          .select()
+          .from(potions)
+          .where(eq(potions.id, potionItem[0].potionId))
+          .limit(1);
+        console.log(`[ItemService] Potion query result:`, {
+          found: !!potion[0],
+          potionId: potion[0]?.id,
+          potionName: potion[0]?.name,
+        });
+        if (potion[0]) {
+          return {
+            id: potionItem[0].id,
+            name: potion[0].name,
+            description: potion[0].description,
+            type: "potion",
+            rarity: potion[0].tier,
+            quality: potionItem[0].quality,
+            effects: potion[0].effects as Potion["effects"],
+          };
+        }
+      }
+      console.log(`[ItemService] PotionItem or Potion not found`);
       return null;
     }
     console.log(`[ItemService] No item found for type ${itemType} with id ${itemId}`);
