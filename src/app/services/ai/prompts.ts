@@ -462,10 +462,10 @@ The ingredient has already been assigned attributes and rarity:
 
 Generate an ingredient with:
 - name: A creative, fantasy-themed ingredient name (3-50 characters, no special chars except spaces/hyphens)
-- description: A vivid description of the ingredient (10-500 characters) that matches the given attributes and rarity
-- emoji: An optional emoji that represents the ingredient (single emoji, max 10 chars)
+- description: A vivid description of the ingredient (10-100 characters) that matches the given attributes and rarity
+- emoji: An emoji that represents the ingredient (single emoji, max 10 chars)
 
-The ingredient should fit a fantasy alchemy theme. Be creative and unique. The name and description should reflect the ingredient's attributes and ${input.rarity} rarity tier.
+The ingredient should fit a fantasy alchemy theme. Be creative and unique. Do not include the attributes in the name or description (no Zestfruit or Spiceleaf). The name and description should reflect the ingredient's attributes and ${input.rarity} rarity tier.
 Incorporate these flavor themes: ${flavors.join(", ")}.
 
 Return ONLY valid JSON in this exact format:
