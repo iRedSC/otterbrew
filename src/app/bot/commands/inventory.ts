@@ -9,7 +9,10 @@ import {
   parseInventory,
 } from "../../services/item-service.js";
 import type { InventorySlot } from "../../db/schema/users.js";
-import { addLongField } from "../utils/embed-helpers.js";
+import {
+  addLongField,
+  formatItemNameByTier,
+} from "../utils/embed-helpers.js";
 
 export const command = {
   data: new SlashCommandBuilder()
@@ -184,8 +187,11 @@ export const command = {
         if (itemsByType.modifier.length > 0) {
           const modifierList = itemsByType.modifier
             .map((item) => {
-              const rarity = item.rarity ? ` [${item.rarity}]` : "";
-              return `• ${item.name}${rarity} (x${item.quantity})`;
+              const formattedName = formatItemNameByTier(
+                item.name,
+                item.rarity,
+              );
+              return `• ${formattedName} (x${item.quantity})`;
             })
             .join("\n");
           itemDescriptions.push(`**✨ Potion Modifiers**\n${modifierList}`);
@@ -195,8 +201,11 @@ export const command = {
         if (itemsByType.seed.length > 0) {
           const seedList = itemsByType.seed
             .map((item) => {
-              const rarity = item.rarity ? ` [${item.rarity}]` : "";
-              return `• ${item.name}${rarity} (x${item.quantity})`;
+              const formattedName = formatItemNameByTier(
+                item.name,
+                item.rarity,
+              );
+              return `• ${formattedName} (x${item.quantity})`;
             })
             .join("\n");
           itemDescriptions.push(`**🌱 Seeds**\n${seedList}`);

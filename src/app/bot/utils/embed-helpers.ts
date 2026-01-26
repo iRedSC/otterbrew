@@ -1,10 +1,46 @@
 import type { EmbedBuilder } from "discord.js";
+import type { RarityTier } from "../../db/schema/seeds.js";
 
 /**
  * Discord embed field value limit is 1024 characters.
  * We use 1000 to leave a small buffer.
  */
 const MAX_FIELD_LENGTH = 1000;
+
+/**
+ * Formats an item name with markdown based on its rarity tier.
+ * Tier progression: italic -> underline -> bold -> italic underline -> italic bold underline
+ *
+ * @param name - The item name to format
+ * @param tier - The rarity tier (optional)
+ * @returns The formatted name with markdown
+ */
+export function formatItemNameByTier(
+  name: string,
+  tier?: RarityTier | string | null,
+): string {
+  if (!tier) {
+    return name;
+  }
+
+  const normalizedTier = tier.toLowerCase();
+
+  switch (normalizedTier) {
+    case "basic":
+      return `*${name}*`; // italic
+    case "uncommon":
+      return `__${name}__`; // underline
+    case "rare":
+      return `**${name}**`; // bold
+    case "epic":
+      return `*__${name}__*`; // italic underline
+    case "legendary":
+    case "mythic":
+      return `***__${name}__***`; // italic bold underline
+    default:
+      return name;
+  }
+}
 
 /**
  * Adds a potentially long text value to an embed, splitting it across

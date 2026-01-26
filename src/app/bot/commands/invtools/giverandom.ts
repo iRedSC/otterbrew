@@ -11,7 +11,10 @@ import { ingredients } from "../../../db/schema/ingredients.js";
 import { potionModifiers } from "../../../db/schema/potion-modifiers.js";
 import type { RarityTier } from "../../../db/schema/seeds.js";
 import type { IngredientAttributes } from "../../../db/schema/ingredients.js";
-import { addLongField } from "../../utils/embed-helpers.js";
+import {
+  addLongField,
+  formatItemNameByTier,
+} from "../../utils/embed-helpers.js";
 
 const RARITY_TIERS: RarityTier[] = [
   "basic",
@@ -263,8 +266,8 @@ export async function handleGiverandom(
     if (givenItems.length > 0) {
       const itemList = givenItems
         .map((item) => {
-          const rarityText = item.rarity ? ` [${item.rarity}]` : "";
-          return `• **${item.name}** (${item.type})${rarityText}`;
+          const formattedName = formatItemNameByTier(item.name, item.rarity);
+          return `• ${formattedName} (${item.type})`;
         })
         .join("\n");
 
