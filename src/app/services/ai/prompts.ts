@@ -395,71 +395,90 @@ function getRandomFlavors(count: number = 3): string[] {
   return shuffled.slice(0, count);
 }
 
-export function getSeedGenerationPrompt(): string {
+import type { SeedGenerationInput } from "./types.js";
+import type { IngredientGenerationInput } from "./types.js";
+import type { SpecialIngredientGenerationInput } from "./types.js";
+
+export function getSeedGenerationPrompt(
+  input: SeedGenerationInput,
+): string {
   const flavors = getRandomFlavors(3);
   return `You are a creative assistant for a fantasy alchemy game called Otterbrew. Generate a unique seed that players can plant in their garden.
 
+The seed has already been assigned a rarity tier: **${input.rarity}**.
+
 Generate a seed with the following properties:
 - name: A creative, fantasy-themed seed name (3-50 characters, no special chars except spaces/hyphens)
-- description: A vivid description of the seed (10-100 characters)
-- rarity: One of: basic, uncommon, rare, epic, legendary, mythic
+- description: A vivid description of the seed (10-500 characters)
 - emoji: An emoji that represents the seed (single emoji, max 10 chars)
 
-The seed should fit a fantasy alchemy theme. Be creative and unique.
+The seed should fit a fantasy alchemy theme and match the ${input.rarity} rarity tier. Be creative and unique.
 Incorporate these flavor themes: ${flavors.join(", ")}.
 
 Return ONLY valid JSON in this exact format:
 {
   "name": "Seed Name",
   "description": "Description text",
-  "rarity": "rare",
   "emoji": "🌱"
 }`;
 }
 
-export function getIngredientGenerationPrompt(): string {
+export function getIngredientGenerationPrompt(
+  input: IngredientGenerationInput,
+): string {
   const flavors = getRandomFlavors(3);
+  const attributeDescriptions: string[] = [];
+  
+  if (input.attributes.spice !== 0) {
+    attributeDescriptions.push(`spice: ${input.attributes.spice} (heat/flame properties)`);
+  }
+  if (input.attributes.time !== 0) {
+    attributeDescriptions.push(`time: ${input.attributes.time} (temporal properties)`);
+  }
+  if (input.attributes.fizz !== 0) {
+    attributeDescriptions.push(`fizz: ${input.attributes.fizz} (effervescence/bubbles)`);
+  }
+  if (input.attributes.zest !== 0) {
+    attributeDescriptions.push(`zest: ${input.attributes.zest} (energy/vitality)`);
+  }
+  if (input.attributes.bane !== 0) {
+    attributeDescriptions.push(`bane: ${input.attributes.bane} (negative/corrupting properties)`);
+  }
+  if (input.attributes.fantasy !== 0) {
+    attributeDescriptions.push(`fantasy: ${input.attributes.fantasy} (magical/mystical properties)`);
+  }
+  if (input.attributes.chaos !== 0) {
+    attributeDescriptions.push(`chaos: ${input.attributes.chaos} (unpredictability)`);
+  }
+  if (input.attributes.darkness !== 0) {
+    attributeDescriptions.push(`darkness: ${input.attributes.darkness} (shadow/void properties)`);
+  }
+
   return `You are a creative assistant for a fantasy alchemy game called Otterbrew. Generate a unique ingredient that players can use to brew potions.
 
-Ingredients have 8-dimensional attributes that affect potion brewing:
-- spice: Affects heat/flame properties (-100 to 100)
-- time: Affects temporal properties (-100 to 100)
-- fizz: Affects effervescence/bubbles (-100 to 100)
-- zest: Affects energy/vitality (-100 to 100)
-- bane: Affects negative/corrupting properties (-100 to 100)
-- fantasy: Affects magical/mystical properties (-100 to 100)
-- chaos: Affects unpredictability (-100 to 100)
-- darkness: Affects shadow/void properties (-100 to 100)
+The ingredient has already been assigned attributes and rarity:
+- Rarity: **${input.rarity}**
+- Attributes: ${attributeDescriptions.length > 0 ? attributeDescriptions.join(", ") : "none (all attributes are 0)"}
 
 Generate an ingredient with:
 - name: A creative, fantasy-themed ingredient name (3-50 characters, no special chars except spaces/hyphens)
-- description: A vivid description of the ingredient (10-100 characters)
-- attributes: An object with 1-3 attributes as integers (each between -100 and 100) Set all the rest to 0.
+- description: A vivid description of the ingredient (10-500 characters) that matches the given attributes and rarity
 - emoji: An optional emoji that represents the ingredient (single emoji, max 10 chars)
 
-Do not include more than 3 attributes. Set the rest to 0.
-The ingredient should fit a fantasy alchemy theme. Be creative and unique. The attributes should make sense for the ingredient's theme.
+The ingredient should fit a fantasy alchemy theme. Be creative and unique. The name and description should reflect the ingredient's attributes and ${input.rarity} rarity tier.
 Incorporate these flavor themes: ${flavors.join(", ")}.
 
 Return ONLY valid JSON in this exact format:
 {
-  "attributes": {
-    "spice": <integer>,
-    "time": <integer>,
-    "fizz": <integer>,
-    "zest": <integer>,
-    "bane": <integer>,
-    "fantasy": <integer>,
-    "chaos": <integer>,
-    "darkness": <integer>
-  },
   "name": "Ingredient Name",
   "description": "Description text",
   "emoji": "✨"
 }`;
 }
 
-export function getSpecialIngredientGenerationPrompt(): string {
+export function getSpecialIngredientGenerationPrompt(
+  input: SpecialIngredientGenerationInput,
+): string {
   const flavors = getRandomFlavors(3);
   return `You are a creative assistant for a fantasy alchemy game called Otterbrew. Generate a unique special ingredient that transforms potions in mysterious ways.
 
@@ -468,20 +487,20 @@ Special ingredients are rare items that modify entire potions when used in brewi
 - Amplifier: Doubles all attribute values
 - Nullifier: Sets all attributes to their absolute values
 
+The special ingredient has already been assigned a rarity tier: **${input.rarity}**.
+
 Generate a special ingredient with:
 - name: A creative, fantasy-themed name (3-50 characters, no special chars except spaces/hyphens)
 - description: A vivid description explaining how it transforms potions (10-500 characters)
-- rarity: One of: basic, uncommon, rare, epic, legendary, mythic
 - emoji: An optional emoji that represents the special ingredient (single emoji, max 10 chars)
 
-The special ingredient should fit a fantasy alchemy theme and have a clear transformative effect. Be creative and unique.
+The special ingredient should fit a fantasy alchemy theme and have a clear transformative effect. Be creative and unique. Match the ${input.rarity} rarity tier.
 Incorporate these flavor themes: ${flavors.join(", ")}.
 
 Return ONLY valid JSON in this exact format:
 {
   "name": "Special Ingredient Name",
   "description": "Description text explaining its transformative effect",
-  "rarity": "rare",
   "emoji": "✨"
 }`;
 }

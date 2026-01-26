@@ -139,6 +139,7 @@ export async function getItemDetails(
           name: ingredient[0].name,
           description: ingredient[0].description,
           type: "ingredient",
+          rarity: ingredient[0].rarity,
           attributes: ingredient[0].attributes as Ingredient["attributes"],
           emoji: ingredient[0].emoji,
         };
@@ -267,6 +268,7 @@ export async function findItemByStringId(
           name: ingredient[0].name,
           description: ingredient[0].description,
           type: "ingredient",
+          rarity: ingredient[0].rarity,
           attributes: ingredient[0].attributes as Ingredient["attributes"],
           emoji: ingredient[0].emoji,
         },

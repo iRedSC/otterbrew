@@ -198,6 +198,7 @@ async function handleGenIngredient(
         name: generated.name,
         description: generated.description,
         attributes: generated.attributes as any,
+        rarity: generated.rarity,
         emoji: generated.emoji,
       })
       .returning();

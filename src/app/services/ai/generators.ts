@@ -11,6 +11,11 @@ import type {
 } from "./types.js";
 import type { RarityTier } from "../../db/schema/seeds.js";
 import type { IngredientAttributes } from "../../db/schema/ingredients.js";
+import { generateIngredientAttributes } from "./attribute-generator.js";
+import {
+  calculateRarityFromAttributes,
+  generateRandomRarity,
+} from "./rarity-calculator.js";
 
 const VALID_RARITIES: RarityTier[] = [
   "basic",
@@ -25,7 +30,10 @@ function isValidRarity(rarity: string): rarity is RarityTier {
   return VALID_RARITIES.includes(rarity as RarityTier);
 }
 
-function validateSeedOutput(data: unknown): SeedGenerationOutput {
+function validateSeedOutput(
+  data: unknown,
+  preGeneratedRarity: RarityTier,
+): SeedGenerationOutput {
   if (!data || typeof data !== "object") {
     throw new Error("Invalid seed output: not an object");
   }
@@ -44,8 +52,9 @@ function validateSeedOutput(data: unknown): SeedGenerationOutput {
     throw new Error("Invalid seed description: must be 10-500 characters");
   }
 
-  if (!isValidRarity(obj.rarity)) {
-    throw new Error(`Invalid rarity: ${obj.rarity}`);
+  // Validate that AI didn't try to override rarity
+  if (obj.rarity !== undefined && obj.rarity !== null) {
+    throw new Error("AI should not provide rarity - it is pre-generated");
   }
 
   if (obj.emoji !== undefined && (typeof obj.emoji !== "string" || obj.emoji.length > 10)) {
@@ -55,13 +64,15 @@ function validateSeedOutput(data: unknown): SeedGenerationOutput {
   return {
     name: obj.name,
     description: obj.description,
-    rarity: obj.rarity,
+    rarity: preGeneratedRarity,
     emoji: obj.emoji,
   };
 }
 
 function validateIngredientOutput(
   data: unknown,
+  preGeneratedAttributes: IngredientAttributes,
+  preGeneratedRarity: RarityTier,
 ): IngredientGenerationOutput {
   if (!data || typeof data !== "object") {
     throw new Error("Invalid ingredient output: not an object");
@@ -85,32 +96,13 @@ function validateIngredientOutput(
     throw new Error("Invalid ingredient description: must be 10-500 characters");
   }
 
-  if (!obj.attributes || typeof obj.attributes !== "object") {
-    throw new Error("Invalid attributes: must be an object");
+  // Validate that AI didn't try to override attributes or rarity
+  if (obj.attributes !== undefined && obj.attributes !== null) {
+    throw new Error("AI should not provide attributes - they are pre-generated");
   }
 
-  const attrs = obj.attributes as Record<string, unknown>;
-  const requiredAttrs = [
-    "spice",
-    "time",
-    "fizz",
-    "zest",
-    "bane",
-    "fantasy",
-    "chaos",
-    "darkness",
-  ];
-
-  for (const attr of requiredAttrs) {
-    if (
-      typeof attrs[attr] !== "number" ||
-      attrs[attr] < -100 ||
-      attrs[attr] > 100
-    ) {
-      throw new Error(
-        `Invalid ${attr}: must be number between -100 and 100`,
-      );
-    }
+  if (obj.rarity !== undefined && obj.rarity !== null) {
+    throw new Error("AI should not provide rarity - it is pre-generated");
   }
 
   if (
@@ -123,13 +115,15 @@ function validateIngredientOutput(
   return {
     name: obj.name,
     description: obj.description,
-    attributes: attrs as IngredientAttributes,
+    attributes: preGeneratedAttributes,
+    rarity: preGeneratedRarity,
     emoji: obj.emoji,
   };
 }
 
 function validateSpecialIngredientOutput(
   data: unknown,
+  preGeneratedRarity: RarityTier,
 ): SpecialIngredientGenerationOutput {
   if (!data || typeof data !== "object") {
     throw new Error("Invalid special ingredient output: not an object");
@@ -155,8 +149,9 @@ function validateSpecialIngredientOutput(
     );
   }
 
-  if (!isValidRarity(obj.rarity)) {
-    throw new Error(`Invalid rarity: ${obj.rarity}`);
+  // Validate that AI didn't try to override rarity
+  if (obj.rarity !== undefined && obj.rarity !== null) {
+    throw new Error("AI should not provide rarity - it is pre-generated");
   }
 
   if (
@@ -169,7 +164,7 @@ function validateSpecialIngredientOutput(
   return {
     name: obj.name,
     description: obj.description,
-    rarity: obj.rarity,
+    rarity: preGeneratedRarity,
     emoji: obj.emoji,
   };
 }
@@ -218,66 +213,65 @@ function parseJSONResponse(content: string): unknown {
 }
 
 export async function generateSeed(): Promise<SeedGenerationOutput> {
-  const prompt = getSeedGenerationPrompt();
+  // Generate rarity beforehand
+  const rarity = generateRandomRarity();
+  const prompt = getSeedGenerationPrompt({ rarity });
 
   try {
     const content = await callOpenAI(prompt);
     const parsed = parseJSONResponse(content);
-    return validateSeedOutput(parsed);
+    return validateSeedOutput(parsed, rarity);
   } catch (error) {
     console.error("[AI:GenerateSeed] Error:", error);
     // Fallback to template-based generation
     return {
       name: "Mysterious Seed",
       description: "A mysterious seed that glimmers with potential.",
-      rarity: "basic",
+      rarity,
       emoji: "🌱",
     };
   }
 }
 
 export async function generateIngredient(): Promise<IngredientGenerationOutput> {
-  const prompt = getIngredientGenerationPrompt();
+  // Generate attributes and rarity beforehand
+  const attributes = generateIngredientAttributes();
+  const rarity = calculateRarityFromAttributes(attributes);
+  const prompt = getIngredientGenerationPrompt({ attributes, rarity });
 
   try {
     const content = await callOpenAI(prompt);
     const parsed = parseJSONResponse(content);
-    return validateIngredientOutput(parsed);
+    return validateIngredientOutput(parsed, attributes, rarity);
   } catch (error) {
     console.error("[AI:GenerateIngredient] Error:", error);
     // Fallback to template-based generation
     return {
       name: "Mysterious Ingredient",
       description: "A powerful alchemical ingredient with mysterious properties.",
-      attributes: {
-        spice: 0,
-        time: 0,
-        fizz: 0,
-        zest: 0,
-        bane: 0,
-        fantasy: 0,
-        chaos: 0,
-        darkness: 0,
-      },
+      attributes,
+      rarity,
       emoji: "✨",
     };
   }
 }
 
 export async function generateSpecialIngredient(): Promise<SpecialIngredientGenerationOutput> {
-  const prompt = getSpecialIngredientGenerationPrompt();
+  // Generate rarity beforehand
+  const rarity = generateRandomRarity();
+  const prompt = getSpecialIngredientGenerationPrompt({ rarity });
 
   try {
     const content = await callOpenAI(prompt);
     const parsed = parseJSONResponse(content);
-    return validateSpecialIngredientOutput(parsed);
+    return validateSpecialIngredientOutput(parsed, rarity);
   } catch (error) {
     console.error("[AI:GenerateSpecialIngredient] Error:", error);
     // Fallback to template-based generation
     return {
       name: "Mysterious Catalyst",
       description: "A mysterious catalyst that transforms potions in unknown ways.",
-      rarity: "basic",
+      rarity,
       emoji: "✨",
     };
   }

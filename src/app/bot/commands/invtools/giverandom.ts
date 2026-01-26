@@ -16,6 +16,7 @@ import {
   getItemDisplayName,
 } from "../../utils/embed-helpers.js";
 import type { ItemDetails } from "../../../services/item-service.js";
+import { calculateRarityFromAttributes } from "../../../services/ai/rarity-calculator.js";
 
 const RARITY_TIERS: RarityTier[] = [
   "basic",
@@ -184,6 +185,7 @@ export async function handleGiverandom(
 
         // If not found, create it
         if (!ingredient[0]) {
+          const rarity = calculateRarityFromAttributes(attributes);
           const newIngredient = await db
             .insert(ingredients)
             .values({
@@ -191,6 +193,7 @@ export async function handleGiverandom(
               name: ingredientName,
               description: `A powerful alchemical ingredient with mysterious properties.`,
               attributes: attributes as any,
+              rarity,
             })
             .returning();
           ingredient = newIngredient;
@@ -212,6 +215,7 @@ export async function handleGiverandom(
                     name: ingredient[0].name,
                     description: ingredient[0].description,
                     type: "ingredient",
+                    rarity: ingredient[0].rarity,
                     attributes: ingredient[0].attributes as IngredientAttributes,
                     emoji: ingredient[0].emoji,
                   }

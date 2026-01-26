@@ -27,6 +27,7 @@ export const ingredients = pgTable(
     name: varchar("name", { length: 100 }).notNull(),
     description: text("description").notNull(),
     attributes: jsonb("attributes").notNull(),
+    rarity: varchar("rarity", { length: 20 }).notNull(),
     emoji: varchar("emoji", { length: 10 }),
   },
   (table) => ({
