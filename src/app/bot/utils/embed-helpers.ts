@@ -1,5 +1,6 @@
 import type { EmbedBuilder } from "discord.js";
 import type { RarityTier } from "../../db/schema/seeds.js";
+import type { ItemDetails } from "../../services/item-service.js";
 
 /**
  * Discord embed field value limit is 1024 characters.
@@ -49,6 +50,44 @@ export function formatItemNameByTier(
     default:
       return `${emojiPrefix}${name}`;
   }
+}
+
+/**
+ * Composes an item display name with optional formatting, emoji, and quantity.
+ * This is the main function to use for displaying items consistently.
+ *
+ * @param itemDetails - The item details (can be null for unknown items)
+ * @param quantity - The quantity of the item (used if showAmount is true)
+ * @param showAmount - Whether to append quantity in parentheses
+ * @param formatRarity - Whether to apply tier-based markdown formatting
+ * @param showEmoji - Whether to display emoji before the name
+ * @returns The formatted display string for the item
+ */
+export function getItemDisplayName(
+  itemDetails: ItemDetails | null,
+  quantity: number = 1,
+  showAmount: boolean = true,
+  formatRarity: boolean = true,
+  showEmoji: boolean = true,
+): string {
+  // Handle unknown items
+  if (!itemDetails) {
+    return `Unknown Item (x${quantity})`;
+  }
+
+  const name = itemDetails.name;
+  const emoji = showEmoji ? itemDetails.emoji : null;
+  const tier = formatRarity ? itemDetails.rarity : null;
+
+  // Format the name with tier and emoji
+  const formattedName = formatItemNameByTier(name, tier, emoji);
+
+  // Append quantity if requested
+  if (showAmount && quantity > 0) {
+    return `${formattedName} (x${quantity})`;
+  }
+
+  return formattedName;
 }
 
 /**

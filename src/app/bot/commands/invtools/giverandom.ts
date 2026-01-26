@@ -13,8 +13,9 @@ import type { RarityTier } from "../../../db/schema/seeds.js";
 import type { IngredientAttributes } from "../../../db/schema/ingredients.js";
 import {
   addLongField,
-  formatItemNameByTier,
+  getItemDisplayName,
 } from "../../utils/embed-helpers.js";
+import type { ItemDetails } from "../../../services/item-service.js";
 
 const RARITY_TIERS: RarityTier[] = [
   "basic",
@@ -108,9 +109,7 @@ export async function handleGiverandom(
 
     const givenItems: Array<{
       type: string;
-      name: string;
-      rarity?: string;
-      emoji?: string | null;
+      details: ItemDetails | null;
     }> = [];
 
     // Give seeds
@@ -152,9 +151,16 @@ export async function handleGiverandom(
           if (added) {
             givenItems.push({
               type: "Seed",
-              name: seedName,
-              rarity: seed[0].rarity,
-              emoji: seed[0].emoji,
+              details: seed[0]
+                ? {
+                    id: seed[0].id,
+                    name: seed[0].name,
+                    description: seed[0].description,
+                    type: "seed",
+                    rarity: seed[0].rarity,
+                    emoji: seed[0].emoji,
+                  }
+                : null,
             });
           }
         }
@@ -200,8 +206,16 @@ export async function handleGiverandom(
           if (added) {
             givenItems.push({
               type: "Ingredient",
-              name: ingredientName,
-              emoji: ingredient[0].emoji,
+              details: ingredient[0]
+                ? {
+                    id: ingredient[0].id,
+                    name: ingredient[0].name,
+                    description: ingredient[0].description,
+                    type: "ingredient",
+                    attributes: ingredient[0].attributes as IngredientAttributes,
+                    emoji: ingredient[0].emoji,
+                  }
+                : null,
             });
           }
         }
@@ -248,9 +262,16 @@ export async function handleGiverandom(
           if (added) {
             givenItems.push({
               type: "Potion Modifier",
-              name: modifierName,
-              rarity: modifier[0].rarity,
-              emoji: modifier[0].emoji,
+              details: modifier[0]
+                ? {
+                    id: modifier[0].id,
+                    name: modifier[0].name,
+                    description: modifier[0].description,
+                    type: "potion_modifier",
+                    rarity: modifier[0].rarity,
+                    emoji: modifier[0].emoji,
+                  }
+                : null,
             });
           }
         }
@@ -270,12 +291,14 @@ export async function handleGiverandom(
     if (givenItems.length > 0) {
       const itemList = givenItems
         .map((item) => {
-          const formattedName = formatItemNameByTier(
-            item.name,
-            item.rarity,
-            item.emoji,
+          const displayName = getItemDisplayName(
+            item.details,
+            1,
+            false, // Don't show amount (we show type instead)
+            true, // Format rarity
+            true, // Show emoji
           );
-          return `• ${formattedName} (${item.type})`;
+          return `• ${displayName} (${item.type})`;
         })
         .join("\n");
 
