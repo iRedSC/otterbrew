@@ -468,6 +468,8 @@ Generate an ingredient with:
 The ingredient should fit a fantasy alchemy theme. Be creative and unique. Do not include the attributes in the name or description (no Zestfruit or Spiceleaf). The name and description should reflect the ingredient's attributes and ${input.rarity} rarity tier.
 Incorporate these flavor themes: ${flavors.join(", ")}.
 
+IMPORTANT - DO NOT INCLUDE THE ATTRIBUTES IN THE NAME OR DESCRIPTION. This is very important.
+
 Return ONLY valid JSON in this exact format:
 {
   "name": "Ingredient Name",
