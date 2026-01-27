@@ -3,18 +3,11 @@ import {
   EmbedBuilder,
 } from "discord.js";
 import { db } from "@db";
-import { ingredients } from "../../../db/schema/ingredients.js";
-import { seeds } from "../../../db/schema/seeds.js";
-import { specialIngredients } from "../../../db/schema/special-ingredients.js";
-import { potions } from "../../../db/schema/potions.js";
-import { potionRecipes } from "../../../db/schema/potion-recipes.js";
-import { potionItems } from "../../../db/schema/potion-items.js";
 import {
   getPendingClear,
   clearPendingClear,
-  tableMap,
-  tableDisplayNames,
 } from "./clear.js";
+import { tableMap, tableDisplayNames } from "./constants.js";
 
 export async function handleConfirm(
   interaction: ChatInputCommandInteraction,

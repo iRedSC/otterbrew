@@ -2,13 +2,7 @@ import {
   type ChatInputCommandInteraction,
   EmbedBuilder,
 } from "discord.js";
-import { db } from "@db";
-import { ingredients } from "../../../db/schema/ingredients.js";
-import { seeds } from "../../../db/schema/seeds.js";
-import { specialIngredients } from "../../../db/schema/special-ingredients.js";
-import { potions } from "../../../db/schema/potions.js";
-import { potionRecipes } from "../../../db/schema/potion-recipes.js";
-import { potionItems } from "../../../db/schema/potion-items.js";
+import { tableMap, tableDisplayNames } from "./constants.js";
 
 // Store pending clear operations: userId -> tableName
 const pendingClears = new Map<string, string>();
@@ -24,24 +18,6 @@ export function setPendingClear(userId: string, tableName: string): void {
 export function clearPendingClear(userId: string): void {
   pendingClears.delete(userId);
 }
-
-const tableMap = {
-  ingredients,
-  seeds,
-  special_ingredients: specialIngredients,
-  potions,
-  potion_recipes: potionRecipes,
-  potion_items: potionItems,
-} as const;
-
-const tableDisplayNames: Record<string, string> = {
-  ingredients: "Ingredients",
-  seeds: "Seeds",
-  special_ingredients: "Special Ingredients",
-  potions: "Potions",
-  potion_recipes: "Potion Recipes",
-  potion_items: "Potion Items",
-};
 
 export async function handleClear(
   interaction: ChatInputCommandInteraction,
