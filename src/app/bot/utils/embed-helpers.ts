@@ -192,7 +192,7 @@ export function formatAttributeEmojis(
     parts.push(`-${negative.join("")}`);
   }
 
-  return parts.join(" ");
+  return parts.join(" | ");
 }
 
 /**
