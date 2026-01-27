@@ -3,17 +3,31 @@ import type { RarityTier } from "../../db/schema/seeds.js";
 import type { ItemDetails } from "../../services/item-service.js";
 
 /**
- * Emoji mapping for attribute types
+ * Emoji mapping for attribute types (positive values)
  */
 const ATTRIBUTE_EMOJIS: Record<string, string> = {
   spice: "🌶️",
-  time: "🕑",
+  time: "🕐",
   fizz: "🍾",
   zest: "✨",
   bane: "☠️",
   fantasy: "☁️",
   chaos: "🌪️",
   darkness: "🔮",
+} as const;
+
+/**
+ * Emoji mapping for opposite attribute types (negative values)
+ */
+const OPPOSITE_ATTRIBUTE_EMOJIS: Record<string, string> = {
+  spice: "❄️", // Chill
+  time: "🛑", // Stasis
+  fizz: "🌅", // Calm
+  zest: "💤", // Apathy
+  bane: "💊", // Remedy
+  fantasy: "🧱", // Reality
+  chaos: "⚖️", // Order
+  darkness: "🔆", // Light
 } as const;
 
 /**
@@ -115,7 +129,8 @@ export function getItemDisplayName(
 
 /**
  * Formats attributes object into a string with emoji prefixes.
- * Example: { spice: 5, time: -3 } -> "🌶️5, 🕑-3"
+ * Negative values show the opposite attribute emoji.
+ * Example: { spice: 5, time: -3 } -> "🌶️5, 🛑3"
  *
  * @param attributes - The attributes object with numeric values
  * @returns Formatted string with emoji prefixes
@@ -125,15 +140,20 @@ export function formatAttributes(
 ): string {
   return Object.entries(attributes)
     .map(([key, value]) => {
-      const emoji = ATTRIBUTE_EMOJIS[key.toLowerCase()] || key;
-      return `${emoji}${value}`;
+      const normalizedKey = key.toLowerCase();
+      const emoji = value < 0
+        ? (OPPOSITE_ATTRIBUTE_EMOJIS[normalizedKey] || ATTRIBUTE_EMOJIS[normalizedKey] || key)
+        : (ATTRIBUTE_EMOJIS[normalizedKey] || key);
+      // Display absolute value since we're showing opposite emoji for negatives
+      return `${emoji}${Math.abs(value)}`;
     })
     .join(", ");
 }
 
 /**
  * Formats attributes object into a string with emoji prefixes, showing only non-zero attributes.
- * Example: { spice: 5, time: 0, fizz: -3 } -> "🌶️5, 🍾-3"
+ * Negative values show the opposite attribute emoji.
+ * Example: { spice: 5, time: 0, fizz: -3 } -> "🌶️5, 🌅3"
  *
  * @param attributes - The attributes object with numeric values
  * @returns Formatted string with emoji prefixes for non-zero attributes only
@@ -149,18 +169,22 @@ export function formatNonZeroAttributes(
   }
   return nonZeroEntries
     .map(([key, value]) => {
-      const emoji = ATTRIBUTE_EMOJIS[key.toLowerCase()] || key;
-      return `${emoji}${value}`;
+      const normalizedKey = key.toLowerCase();
+      const emoji = value < 0
+        ? (OPPOSITE_ATTRIBUTE_EMOJIS[normalizedKey] || ATTRIBUTE_EMOJIS[normalizedKey] || key)
+        : (ATTRIBUTE_EMOJIS[normalizedKey] || key);
+      // Display absolute value since we're showing opposite emoji for negatives
+      return `${emoji}${Math.abs(value)}`;
     })
     .join(", ");
 }
 
 /**
- * Formats attributes as emojis only, grouped by positive/negative with prefixes.
- * Example: { spice: 5, bane: 3, chaos: -2, fizz: -1 } -> "+🌶️☠️ -🌪️🍾"
+ * Formats attributes as emojis only, showing opposite emojis for negative values.
+ * Example: { spice: 5, bane: 3, chaos: -2, fizz: -1 } -> "+🌶️☠️⚖️🌅"
  *
  * @param attributes - The attributes object with numeric values
- * @returns Formatted string with emojis grouped by sign (+ for positive, - for negative)
+ * @returns Formatted string with emojis (all shown with + prefix since negatives display as opposites)
  */
 export function formatAttributeEmojis(
   attributes: Record<string, number>,
@@ -172,27 +196,21 @@ export function formatAttributeEmojis(
     return "";
   }
 
-  const positive: string[] = [];
-  const negative: string[] = [];
+  const emojis: string[] = [];
 
   for (const [key, value] of nonZeroEntries) {
-    const emoji = ATTRIBUTE_EMOJIS[key.toLowerCase()] || key;
+    const normalizedKey = key.toLowerCase();
     if (value > 0) {
-      positive.push(emoji);
+      const emoji = ATTRIBUTE_EMOJIS[normalizedKey] || key;
+      emojis.push(emoji);
     } else {
-      negative.push(emoji);
+      // Use opposite emoji for negative values
+      const emoji = OPPOSITE_ATTRIBUTE_EMOJIS[normalizedKey] || ATTRIBUTE_EMOJIS[normalizedKey] || key;
+      emojis.push(emoji);
     }
   }
 
-  const parts: string[] = [];
-  if (positive.length > 0) {
-    parts.push(`+${positive.join("")}`);
-  }
-  if (negative.length > 0) {
-    parts.push(`-${negative.join("")}`);
-  }
-
-  return parts.join(" | ");
+  return `+${emojis.join("")}`;
 }
 
 /**

@@ -11,7 +11,7 @@ type AttributeName = (typeof ALL_ATTRIBUTES)[number];
 
 /**
  * Generates ingredient attributes with the following rules:
- * - Randomly selects 1-4 attributes to modify (uniform distribution)
+ * - Randomly selects 1-4 attributes to modify (weighted: 1=50%, 2=35%, 3=12%, 4=3%)
  * - Regular attributes (spice, time, fizz, zest, bane): 95% chance each
  * - Rare attributes (fantasy, chaos, darkness): 5% chance each
  * - Positive values: 70% chance, range 1-100
@@ -32,7 +32,18 @@ export function generateIngredientAttributes(): IngredientAttributes {
   };
 
   // Randomly select 1-4 attributes to modify
-  const numAttributes = Math.floor(Math.random() * 4) + 1;
+  // Weighted distribution: 1 attribute = 50%, 2 attributes = 35%, 3 attributes = 12%, 4 attributes = 3%
+  const random = Math.random();
+  let numAttributes: number;
+  if (random < 0.5) {
+    numAttributes = 1;
+  } else if (random < 0.85) {
+    numAttributes = 2;
+  } else if (random < 0.97) {
+    numAttributes = 3;
+  } else {
+    numAttributes = 4;
+  }
   const selectedAttributes: AttributeName[] = [];
   const availableAttributes: AttributeName[] = [...ALL_ATTRIBUTES];
 
