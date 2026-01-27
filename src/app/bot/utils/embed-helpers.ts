@@ -156,11 +156,11 @@ export function formatNonZeroAttributes(
 }
 
 /**
- * Formats attributes as emojis only, with curly brackets around negative attributes.
- * Example: { spice: 5, time: 0, fizz: -3 } -> "🌶️ {🍾}"
+ * Formats attributes as emojis only, grouped by positive/negative with prefixes.
+ * Example: { spice: 5, bane: 3, chaos: -2, fizz: -1 } -> "+🌶️☠️ -🌪️🍾"
  *
  * @param attributes - The attributes object with numeric values
- * @returns Formatted string with emojis only, negative ones in curly brackets
+ * @returns Formatted string with emojis grouped by sign (+ for positive, - for negative)
  */
 export function formatAttributeEmojis(
   attributes: Record<string, number>,
@@ -171,12 +171,28 @@ export function formatAttributeEmojis(
   if (nonZeroEntries.length === 0) {
     return "";
   }
-  return nonZeroEntries
-    .map(([key, value]) => {
-      const emoji = ATTRIBUTE_EMOJIS[key.toLowerCase()] || key;
-      return value < 0 ? `{${emoji}}` : emoji;
-    })
-    .join(" ");
+
+  const positive: string[] = [];
+  const negative: string[] = [];
+
+  for (const [key, value] of nonZeroEntries) {
+    const emoji = ATTRIBUTE_EMOJIS[key.toLowerCase()] || key;
+    if (value > 0) {
+      positive.push(emoji);
+    } else {
+      negative.push(emoji);
+    }
+  }
+
+  const parts: string[] = [];
+  if (positive.length > 0) {
+    parts.push(`+${positive.join("")}`);
+  }
+  if (negative.length > 0) {
+    parts.push(`-${negative.join("")}`);
+  }
+
+  return parts.join(" ");
 }
 
 /**
