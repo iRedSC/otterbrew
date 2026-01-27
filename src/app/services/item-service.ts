@@ -79,6 +79,12 @@ export async function getItemDetails(
 ): Promise<ItemDetails | null> {
   try {
     console.log(`[ItemService] getItemDetails called:`, { itemType, itemId });
+    
+    // Validate itemId format (should be UUID)
+    if (!itemId || typeof itemId !== "string" || itemId.length < 36) {
+      console.error(`[ItemService] Invalid itemId format:`, { itemType, itemId });
+      return null;
+    }
     if (itemType === "seed") {
       const seed = await db
         .select()
@@ -113,7 +119,14 @@ export async function getItemDetails(
         specialIngredientName: specialIngredient[0]?.name,
         emoji: specialIngredient[0]?.emoji,
         emojiType: typeof specialIngredient[0]?.emoji,
+        queriedItemId: itemId,
+        match: specialIngredient[0]?.id === itemId,
       });
+      
+      // If not found, log a warning
+      if (!specialIngredient[0]) {
+        console.warn(`[ItemService] Special ingredient not found for itemId: ${itemId}. This may indicate the item was deleted from the database.`);
+      }
       if (specialIngredient[0]) {
         return {
           id: specialIngredient[0].id,
@@ -134,7 +147,14 @@ export async function getItemDetails(
         found: !!ingredient[0],
         ingredientId: ingredient[0]?.id,
         ingredientName: ingredient[0]?.name,
+        queriedItemId: itemId,
+        match: ingredient[0]?.id === itemId,
       });
+      
+      // If still not found after checking both tables, log an error
+      if (!ingredient[0]) {
+        console.error(`[ItemService] ERROR: Item not found in either specialIngredients or ingredients table for itemId: ${itemId}, itemType: ${itemType}. This indicates an invalid item reference in inventory.`);
+      }
       if (ingredient[0]) {
         return {
           id: ingredient[0].id,
@@ -291,6 +311,17 @@ export async function addItemToInventory(
   quantity: number = 1,
 ): Promise<boolean> {
   try {
+    // Validate that the item exists before adding to inventory
+    const itemExists = await getItemDetails(itemType, itemId);
+    if (!itemExists) {
+      console.error(`[ItemService] Cannot add item to inventory: item does not exist`, {
+        itemType,
+        itemId,
+        discordId,
+      });
+      return false;
+    }
+
     const user = await db
       .select()
       .from(users)

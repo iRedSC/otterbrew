@@ -104,6 +104,11 @@ export async function handleGiverandom(
           
           if (randomSpecialIngredient) {
             // Special ingredients are stored as ingredients in inventory
+            console.log(`[Invtools:GiveRandom] Adding special ingredient to inventory:`, {
+              specialIngredientId: randomSpecialIngredient.id,
+              specialIngredientName: randomSpecialIngredient.name,
+              stringId: randomSpecialIngredient.stringId,
+            });
             const added = await addItemToInventory(
               user.discordId,
               "ingredient",
@@ -115,6 +120,14 @@ export async function handleGiverandom(
               // Note: Special ingredients are stored as "ingredient" type in inventory
               // but we need to get details from specialIngredients table
               const details = await getItemDetails("ingredient", randomSpecialIngredient.id);
+              console.log(`[Invtools:GiveRandom] Retrieved details for special ingredient:`, {
+                specialIngredientId: randomSpecialIngredient.id,
+                detailsFound: !!details,
+                detailsName: details?.name,
+              });
+              if (!details) {
+                console.error(`[Invtools:GiveRandom] WARNING: Special ingredient ${randomSpecialIngredient.id} was added to inventory but getItemDetails returned null!`);
+              }
               givenItems.push({
                 type: "Special Ingredient",
                 details,
