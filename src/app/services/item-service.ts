@@ -311,6 +311,8 @@ export async function addItemToInventory(
   quantity: number = 1,
 ): Promise<boolean> {
   try {
+    console.log(`[ItemService] addItemToInventory called:`, { discordId, itemType, itemId, quantity });
+    
     // Validate that the item exists before adding to inventory
     const itemExists = await getItemDetails(itemType, itemId);
     if (!itemExists) {
@@ -321,6 +323,7 @@ export async function addItemToInventory(
       });
       return false;
     }
+    console.log(`[ItemService] Item validated: ${itemExists.name} (${itemExists.id})`);
 
     const user = await db
       .select()
@@ -329,10 +332,12 @@ export async function addItemToInventory(
       .limit(1);
 
     if (!user[0]) {
+      console.error(`[ItemService] User not found: ${discordId}`);
       return false;
     }
 
     const inventory = parseInventory(user[0].inventory);
+    console.log(`[ItemService] Current inventory size: ${inventory.length}, max slots: ${user[0].maxInventorySlots}`);
 
     // Check if item already exists in inventory
     const existingSlotIndex = inventory.findIndex(
@@ -341,13 +346,16 @@ export async function addItemToInventory(
 
     if (existingSlotIndex >= 0) {
       // Update quantity
+      console.log(`[ItemService] Item already in inventory, updating quantity from ${inventory[existingSlotIndex].quantity} to ${inventory[existingSlotIndex].quantity + quantity}`);
       inventory[existingSlotIndex].quantity += quantity;
     } else {
       // Check if inventory is full
       if (inventory.length >= user[0].maxInventorySlots) {
+        console.error(`[ItemService] Inventory full: ${inventory.length}/${user[0].maxInventorySlots}`);
         return false; // Inventory full
       }
       // Add new slot
+      console.log(`[ItemService] Adding new item to inventory slot ${inventory.length + 1}`);
       inventory.push({
         itemType,
         itemId,
@@ -356,6 +364,7 @@ export async function addItemToInventory(
     }
 
     // Update database
+    console.log(`[ItemService] Updating database with inventory of ${inventory.length} items`);
     await db
       .update(users)
       .set({
@@ -364,9 +373,14 @@ export async function addItemToInventory(
       })
       .where(eq(users.discordId, discordId));
 
+    console.log(`[ItemService] Successfully added item to inventory`);
     return true;
   } catch (error) {
     console.error("[ItemService] Error adding item to inventory:", error);
+    if (error instanceof Error) {
+      console.error("[ItemService] Error message:", error.message);
+      console.error("[ItemService] Error stack:", error.stack);
+    }
     return false;
   }
 }

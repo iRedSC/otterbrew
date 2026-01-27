@@ -67,6 +67,7 @@ export async function handleGiverandom(
     // Give ingredients - only from existing items in database
     if (itemType === "ingredient" || itemType === "all") {
       const allIngredients = await db.select().from(ingredients);
+      console.log(`[Invtools:GiveRandom] Found ${allIngredients.length} ingredients in database`);
       
       if (allIngredients.length > 0) {
         for (let i = 0; i < quantity; i++) {
@@ -74,22 +75,29 @@ export async function handleGiverandom(
           const randomIngredient = allIngredients[Math.floor(Math.random() * allIngredients.length)];
           
           if (randomIngredient) {
+            console.log(`[Invtools:GiveRandom] Attempting to add ingredient: ${randomIngredient.name} (${randomIngredient.id})`);
             const added = await addItemToInventory(
               user.discordId,
               "ingredient",
               randomIngredient.id,
               1,
             );
+            console.log(`[Invtools:GiveRandom] addItemToInventory returned: ${added} for ingredient ${randomIngredient.id}`);
             if (added) {
               // Retrieve item details to ensure emoji from /gen is reused
               const details = await getItemDetails("ingredient", randomIngredient.id);
+              console.log(`[Invtools:GiveRandom] Retrieved details for ingredient: ${details?.name || 'null'}`);
               givenItems.push({
                 type: "Ingredient",
                 details,
               });
+            } else {
+              console.error(`[Invtools:GiveRandom] Failed to add ingredient ${randomIngredient.id} to inventory`);
             }
           }
         }
+      } else {
+        console.log(`[Invtools:GiveRandom] No ingredients found in database`);
       }
     }
 
@@ -137,6 +145,13 @@ export async function handleGiverandom(
         }
       }
     }
+
+    console.log(`[Invtools:GiveRandom] Final givenItems count: ${givenItems.length}`);
+    console.log(`[Invtools:GiveRandom] givenItems:`, givenItems.map(item => ({
+      type: item.type,
+      name: item.details?.name || 'null',
+      id: item.details?.id || 'null',
+    })));
 
     const embed = new EmbedBuilder()
       .setTitle("🎁 Random Items Given")
