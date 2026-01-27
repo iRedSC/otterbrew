@@ -518,7 +518,7 @@ Generate an ingredient with:
 - emoji: An emoji that represents the ingredient (single emoji, max 10 chars)
 
 The ingredient should be recognizable and something that could exist in the real world. Make them clean and clear. Do not include the attributes in the name or description. The name and description should reflect the ingredient's attributes and ${input.rarity} rarity tier.
-Incorporate these flavor themes: ${flavors.join(", ")}.
+Incorporate these flavor themes: ${flavors.join(", ")}. Use the attributes to guide the type of ingredient more than the flavor themes.
 
 IMPORTANT - DO NOT INCLUDE THE ATTRIBUTES IN THE NAME OR DESCRIPTION. This is very important.
 
