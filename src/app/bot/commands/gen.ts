@@ -29,7 +29,7 @@ async function handleGenSeed(
     );
 
     // Generate all seeds in parallel
-    const generatedSeeds = await Promise.all(
+    const seedResults = await Promise.allSettled(
       Array.from({ length: amount }, () => generateSeed()),
     );
 
@@ -40,7 +40,12 @@ async function handleGenSeed(
     }> = [];
 
     // Check for existing seeds and create new ones
-    for (const generated of generatedSeeds) {
+    for (const result of seedResults) {
+      if (result.status === "rejected") {
+        console.error("[Gen:Seed] Failed to generate seed:", result.reason);
+        continue;
+      }
+      const generated = result.value;
       const stringId = nameToStringId(generated.name);
 
       // Check if seed already exists
@@ -160,7 +165,7 @@ async function handleGenIngredient(
     );
 
     // Generate all ingredients in parallel
-    const generatedIngredients = await Promise.all(
+    const ingredientResults = await Promise.allSettled(
       Array.from({ length: amount }, () => generateIngredient()),
     );
 
@@ -171,7 +176,12 @@ async function handleGenIngredient(
     }> = [];
 
     // Check for existing ingredients and create new ones
-    for (const generated of generatedIngredients) {
+    for (const result of ingredientResults) {
+      if (result.status === "rejected") {
+        console.error("[Gen:Ingredient] Failed to generate ingredient:", result.reason);
+        continue;
+      }
+      const generated = result.value;
       try {
         const stringId = nameToStringId(generated.name);
 
@@ -321,7 +331,7 @@ async function handleGenModifier(
     );
 
     // Generate all special ingredients in parallel
-    const generatedModifiers = await Promise.all(
+    const modifierResults = await Promise.allSettled(
       Array.from({ length: amount }, () => generateSpecialIngredient()),
     );
 
@@ -332,7 +342,12 @@ async function handleGenModifier(
     }> = [];
 
     // Check for existing special ingredients and create new ones
-    for (const generated of generatedModifiers) {
+    for (const result of modifierResults) {
+      if (result.status === "rejected") {
+        console.error("[Gen:Modifier] Failed to generate special ingredient:", result.reason);
+        continue;
+      }
+      const generated = result.value;
       const stringId = nameToStringId(generated.name);
 
       // Check if special ingredient already exists

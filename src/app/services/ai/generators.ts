@@ -265,20 +265,9 @@ export async function generateSeed(): Promise<SeedGenerationOutput> {
   const rarity = generateRandomRarity();
   const prompt = getSeedGenerationPrompt({ rarity });
 
-  try {
-    const content = await callOpenAI(prompt);
-    const parsed = parseJSONResponse(content);
-    return validateSeedOutput(parsed, rarity);
-  } catch (error) {
-    console.error("[AI:GenerateSeed] Error:", error);
-    // Fallback to template-based generation
-    return {
-      name: "Mysterious Seed",
-      description: "A mysterious seed that glimmers with potential.",
-      rarity,
-      emoji: "🌱",
-    };
-  }
+  const content = await callOpenAI(prompt);
+  const parsed = parseJSONResponse(content);
+  return validateSeedOutput(parsed, rarity);
 }
 
 export async function generateIngredient(): Promise<IngredientGenerationOutput> {
@@ -287,30 +276,11 @@ export async function generateIngredient(): Promise<IngredientGenerationOutput> 
   const rarity = calculateRarityFromAttributes(attributes);
   const prompt = getIngredientGenerationPrompt({ attributes, rarity });
 
-  try {
-    const content = await callOpenAI(prompt);
-    const parsed = parseJSONResponse(content);
-    const validated = validateIngredientOutput(parsed, attributes, rarity);
-    console.log(`[AI:GenerateIngredient] Successfully generated: ${validated.name}`);
-    return validated;
-  } catch (error) {
-    console.error("[AI:GenerateIngredient] Error:", error);
-    if (error instanceof Error) {
-      console.error("[AI:GenerateIngredient] Error message:", error.message);
-      console.error("[AI:GenerateIngredient] Error stack:", error.stack);
-    }
-    // Fallback to template-based generation with unique suffix to avoid duplicate stringId conflicts
-    const uniqueSuffix = Math.random().toString(36).substring(2, 8);
-    const fallbackName = `Mysterious Ingredient (${uniqueSuffix})`;
-    console.log(`[AI:GenerateIngredient] Using fallback: ${fallbackName}`);
-    return {
-      name: fallbackName,
-      description: "A powerful alchemical ingredient with mysterious properties.",
-      attributes,
-      rarity,
-      emoji: "✨",
-    };
-  }
+  const content = await callOpenAI(prompt);
+  const parsed = parseJSONResponse(content);
+  const validated = validateIngredientOutput(parsed, attributes, rarity);
+  console.log(`[AI:GenerateIngredient] Successfully generated: ${validated.name}`);
+  return validated;
 }
 
 export async function generateSpecialIngredient(): Promise<SpecialIngredientGenerationOutput> {
@@ -318,18 +288,7 @@ export async function generateSpecialIngredient(): Promise<SpecialIngredientGene
   const rarity = generateRandomRarity();
   const prompt = getSpecialIngredientGenerationPrompt({ rarity });
 
-  try {
-    const content = await callOpenAI(prompt);
-    const parsed = parseJSONResponse(content);
-    return validateSpecialIngredientOutput(parsed, rarity);
-  } catch (error) {
-    console.error("[AI:GenerateSpecialIngredient] Error:", error);
-    // Fallback to template-based generation
-    return {
-      name: "Mysterious Catalyst",
-      description: "A mysterious catalyst that transforms potions in unknown ways.",
-      rarity,
-      emoji: "✨",
-    };
-  }
+  const content = await callOpenAI(prompt);
+  const parsed = parseJSONResponse(content);
+  return validateSpecialIngredientOutput(parsed, rarity);
 }
