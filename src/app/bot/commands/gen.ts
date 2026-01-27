@@ -172,39 +172,64 @@ async function handleGenIngredient(
 
     // Check for existing ingredients and create new ones
     for (const generated of generatedIngredients) {
-      const stringId = nameToStringId(generated.name);
+      try {
+        const stringId = nameToStringId(generated.name);
 
-      // Check if ingredient already exists
-      const existing = await db
-        .select()
-        .from(ingredients)
-        .where(eq(ingredients.stringId, stringId))
-        .limit(1);
+        // Check if ingredient already exists
+        const existing = await db
+          .select()
+          .from(ingredients)
+          .where(eq(ingredients.stringId, stringId))
+          .limit(1);
 
-      if (existing[0]) {
-        results.push({
-          generated,
-          existing: existing[0],
-          created: null,
-        });
-      } else {
-        // Create new ingredient
-        const newIngredient = await db
-          .insert(ingredients)
-          .values({
-            stringId,
-            name: generated.name,
-            description: generated.description,
-            attributes: generated.attributes as any,
-            rarity: generated.rarity,
-            emoji: generated.emoji,
-          })
-          .returning();
+        if (existing[0]) {
+          results.push({
+            generated,
+            existing: existing[0],
+            created: null,
+          });
+        } else {
+          // Create new ingredient
+          console.log(`[Gen:Ingredient] Inserting ingredient: ${generated.name} (${stringId})`);
+          const newIngredient = await db
+            .insert(ingredients)
+            .values({
+              stringId,
+              name: generated.name,
+              description: generated.description,
+              attributes: generated.attributes as any,
+              rarity: generated.rarity,
+              emoji: generated.emoji,
+            })
+            .returning();
 
+          if (newIngredient[0]) {
+            console.log(`[Gen:Ingredient] Successfully inserted ingredient: ${newIngredient[0].id} - ${newIngredient[0].name}`);
+            results.push({
+              generated,
+              existing: null,
+              created: newIngredient[0],
+            });
+          } else {
+            console.error(`[Gen:Ingredient] Failed to insert ingredient: ${generated.name} - no returned value`);
+            results.push({
+              generated,
+              existing: null,
+              created: null,
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`[Gen:Ingredient] Error processing ingredient ${generated.name}:`, error);
+        if (error instanceof Error) {
+          console.error(`[Gen:Ingredient] Error message:`, error.message);
+          console.error(`[Gen:Ingredient] Error stack:`, error.stack);
+        }
+        // Still add to results so we can show what failed
         results.push({
           generated,
           existing: null,
-          created: newIngredient[0] ?? null,
+          created: null,
         });
       }
     }

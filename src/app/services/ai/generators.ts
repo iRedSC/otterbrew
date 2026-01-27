@@ -195,8 +195,17 @@ async function callOpenAI(prompt: string): Promise<string> {
         max_completion_tokens: 500, // Limit final output tokens
       });
 
+      // For reasoning models, check both content and potentially other fields
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        // Log the full response for debugging
+        console.error("[AI:callOpenAI] No content in reasoning model response:", {
+          choices: completion.choices?.length,
+          firstChoice: completion.choices?.[0],
+          message: completion.choices?.[0]?.message,
+          finishReason: completion.choices?.[0]?.finish_reason,
+          fullResponse: JSON.stringify(completion, null, 2),
+        });
         throw new Error("No content in OpenAI response");
       }
 
@@ -222,6 +231,14 @@ async function callOpenAI(prompt: string): Promise<string> {
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        // Log the full response for debugging
+        console.error("[AI:callOpenAI] No content in standard model response:", {
+          choices: completion.choices?.length,
+          firstChoice: completion.choices?.[0],
+          message: completion.choices?.[0]?.message,
+          finishReason: completion.choices?.[0]?.finish_reason,
+          fullResponse: JSON.stringify(completion, null, 2),
+        });
         throw new Error("No content in OpenAI response");
       }
 
@@ -273,12 +290,21 @@ export async function generateIngredient(): Promise<IngredientGenerationOutput> 
   try {
     const content = await callOpenAI(prompt);
     const parsed = parseJSONResponse(content);
-    return validateIngredientOutput(parsed, attributes, rarity);
+    const validated = validateIngredientOutput(parsed, attributes, rarity);
+    console.log(`[AI:GenerateIngredient] Successfully generated: ${validated.name}`);
+    return validated;
   } catch (error) {
     console.error("[AI:GenerateIngredient] Error:", error);
-    // Fallback to template-based generation
+    if (error instanceof Error) {
+      console.error("[AI:GenerateIngredient] Error message:", error.message);
+      console.error("[AI:GenerateIngredient] Error stack:", error.stack);
+    }
+    // Fallback to template-based generation with unique suffix to avoid duplicate stringId conflicts
+    const uniqueSuffix = Math.random().toString(36).substring(2, 8);
+    const fallbackName = `Mysterious Ingredient (${uniqueSuffix})`;
+    console.log(`[AI:GenerateIngredient] Using fallback: ${fallbackName}`);
     return {
-      name: "Mysterious Ingredient",
+      name: fallbackName,
       description: "A powerful alchemical ingredient with mysterious properties.",
       attributes,
       rarity,
