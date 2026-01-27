@@ -33,8 +33,7 @@ export const command = {
             .setDescription("Amount of gold to add")
             .setRequired(true)
             .setMinValue(1),
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        ),
     ),
   execute: async (interaction: ChatInputCommandInteraction): Promise<void> => {
     console.log(`[Gold] Command started for user ${interaction.user.id}`);
@@ -47,7 +46,18 @@ export const command = {
       const subcommand = interaction.options.getSubcommand();
 
       if (subcommand === "add") {
-        // Dev/testing subcommand
+        // Dev/testing subcommand - check permissions
+        if (
+          !interaction.memberPermissions?.has(
+            PermissionFlagsBits.Administrator,
+          )
+        ) {
+          await interaction.editReply({
+            content: "❌ You don't have permission to use this command.",
+          });
+          return;
+        }
+
         const amount = interaction.options.getInteger("amount", true);
         const user = await getOrCreateUser(interaction.user.id);
         const newGold = user.gold + amount;
