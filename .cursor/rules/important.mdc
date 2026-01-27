@@ -31,3 +31,20 @@ This applies to any command that displays lists, inventories, or other variable-
 4. Add a choice option to the `table` string option in `src/app/bot/commands/database.ts`
 
 This ensures the new table can be cleared via the database management command.
+
+## Generation Command Management
+
+**IMPORTANT**: When adding a new generatable item type to the codebase, you must also add it to the `/gen` command:
+
+1. Create a generator function in `src/app/services/ai/generators.ts` (e.g., `generateNewItemType()`)
+2. Add a new subcommand to the `/gen` command in `src/app/bot/commands/gen.ts`:
+   - Use singular form for the subcommand name (e.g., `item` not `items`)
+   - Add an `amount` integer option (min: 1, max: 20, optional, defaults to 1)
+   - Create a handler function (e.g., `handleGenNewItemType()`) that:
+     - Generates multiple items in parallel using `Promise.all()`
+     - Checks for duplicates before inserting
+     - Uses `addLongField()` from `embed-helpers.ts` to display results
+     - Shows separate sections for created items and duplicates
+3. Add the subcommand case to the switch statement in the `execute` function
+
+This ensures new generatable item types can be created via the generation command with support for batch generation.

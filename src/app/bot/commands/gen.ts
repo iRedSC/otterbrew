@@ -15,7 +15,7 @@ import {
   generateSpecialIngredient,
 } from "../../services/ai/generators.js";
 import { nameToStringId } from "../../services/item-service.js";
-import { formatAttributes } from "../utils/embed-helpers.js";
+import { formatAttributes, addLongField } from "../utils/embed-helpers.js";
 
 async function handleGenSeed(
   interaction: ChatInputCommandInteraction,
@@ -23,96 +23,111 @@ async function handleGenSeed(
   try {
     await interaction.deferReply();
 
-    console.log(`[Gen:Seed] Generating seed for user ${interaction.user.id}`);
+    const amount = interaction.options.getInteger("amount") ?? 1;
+    console.log(
+      `[Gen:Seed] Generating ${amount} seed(s) for user ${interaction.user.id}`,
+    );
 
-    const generated = await generateSeed();
-    const stringId = nameToStringId(generated.name);
+    // Generate all seeds in parallel
+    const generatedSeeds = await Promise.all(
+      Array.from({ length: amount }, () => generateSeed()),
+    );
 
-    // Check if seed already exists
-    const existing = await db
-      .select()
-      .from(seeds)
-      .where(eq(seeds.stringId, stringId))
-      .limit(1);
+    const results: Array<{
+      generated: Awaited<ReturnType<typeof generateSeed>>;
+      existing: typeof seeds.$inferSelect | null;
+      created: typeof seeds.$inferSelect | null;
+    }> = [];
 
-    if (existing[0]) {
-      const embed = new EmbedBuilder()
-        .setTitle("🌱 Seed Generated")
-        .setDescription(
-          `A seed with this name already exists! Here's the existing seed:`,
-        )
-        .setColor(0x90ee90)
-        .addFields(
-          {
-            name: "Name",
-            value: existing[0].name,
-            inline: true,
-          },
-          {
-            name: "Rarity",
-            value: existing[0].rarity,
-            inline: true,
-          },
-          {
-            name: "Description",
-            value: existing[0].description,
-          },
-        )
-        .setTimestamp();
+    // Check for existing seeds and create new ones
+    for (const generated of generatedSeeds) {
+      const stringId = nameToStringId(generated.name);
 
-      if (existing[0].emoji) {
-        embed.setDescription(
-          `${existing[0].emoji} ${existing[0].name} already exists!`,
-        );
+      // Check if seed already exists
+      const existing = await db
+        .select()
+        .from(seeds)
+        .where(eq(seeds.stringId, stringId))
+        .limit(1);
+
+      if (existing[0]) {
+        results.push({
+          generated,
+          existing: existing[0],
+          created: null,
+        });
+      } else {
+        // Create new seed
+        const newSeed = await db
+          .insert(seeds)
+          .values({
+            stringId,
+            name: generated.name,
+            description: generated.description,
+            rarity: generated.rarity,
+            emoji: generated.emoji,
+          })
+          .returning();
+
+        results.push({
+          generated,
+          existing: null,
+          created: newSeed[0] ?? null,
+        });
       }
-
-      await interaction.editReply({ embeds: [embed] });
-      return;
     }
 
-    // Create new seed
-    const newSeed = await db
-      .insert(seeds)
-      .values({
-        stringId,
-        name: generated.name,
-        description: generated.description,
-        rarity: generated.rarity,
-        emoji: generated.emoji,
-      })
-      .returning();
-
-    if (!newSeed[0]) {
-      throw new Error("Failed to create seed in database");
-    }
+    const created = results.filter((r) => r.created !== null);
+    const duplicates = results.filter((r) => r.existing !== null);
 
     const embed = new EmbedBuilder()
       .setTitle("🌱 Seed Generated")
-      .setDescription(
-        `Successfully generated a new seed: **${newSeed[0].name}**`,
-      )
       .setColor(0x90ee90)
-      .addFields(
-        {
-          name: "Name",
-          value: newSeed[0].name,
-          inline: true,
-        },
-        {
-          name: "Rarity",
-          value: newSeed[0].rarity,
-          inline: true,
-        },
-        {
-          name: "Description",
-          value: newSeed[0].description,
-        },
-      )
       .setTimestamp();
 
-    if (newSeed[0].emoji) {
+    if (created.length > 0) {
+      const createdList = created
+        .map((r) => {
+          const seed = r.created!;
+          const emoji = seed.emoji ? `${seed.emoji} ` : "";
+          return `${emoji}**${seed.name}** (${seed.rarity})\n${seed.description}`;
+        })
+        .join("\n\n");
+
+      addLongField(
+        embed,
+        `✅ Created (${created.length})`,
+        createdList,
+        false,
+      );
+    }
+
+    if (duplicates.length > 0) {
+      const duplicateList = duplicates
+        .map((r) => {
+          const seed = r.existing!;
+          const emoji = seed.emoji ? `${seed.emoji} ` : "";
+          return `${emoji}**${seed.name}** (${seed.rarity})\n${seed.description}`;
+        })
+        .join("\n\n");
+
+      addLongField(
+        embed,
+        `⚠️ Already Exists (${duplicates.length})`,
+        duplicateList,
+        false,
+      );
+    }
+
+    if (created.length === 0 && duplicates.length === 0) {
+      embed.setDescription("❌ Failed to generate any seeds.");
+    } else if (created.length === amount) {
       embed.setDescription(
-        `Successfully generated: ${newSeed[0].emoji} **${newSeed[0].name}**`,
+        `Successfully generated ${amount} new seed${amount > 1 ? "s" : ""}!`,
+      );
+    } else {
+      embed.setDescription(
+        `Generated ${created.length} new seed${created.length !== 1 ? "s" : ""} and found ${duplicates.length} duplicate${duplicates.length !== 1 ? "s" : ""}.`,
       );
     }
 
@@ -125,7 +140,7 @@ async function handleGenSeed(
     }
     try {
       await interaction.editReply({
-        content: "❌ An error occurred while generating the seed.",
+        content: "❌ An error occurred while generating the seed(s).",
       });
     } catch (replyError) {
       console.error("[Gen:Seed] Failed to send error reply:", replyError);
@@ -139,103 +154,116 @@ async function handleGenIngredient(
   try {
     await interaction.deferReply();
 
+    const amount = interaction.options.getInteger("amount") ?? 1;
     console.log(
-      `[Gen:Ingredient] Generating ingredient for user ${interaction.user.id}`,
+      `[Gen:Ingredient] Generating ${amount} ingredient(s) for user ${interaction.user.id}`,
     );
 
-    const generated = await generateIngredient();
-    const stringId = nameToStringId(generated.name);
+    // Generate all ingredients in parallel
+    const generatedIngredients = await Promise.all(
+      Array.from({ length: amount }, () => generateIngredient()),
+    );
 
-    // Check if ingredient already exists
-    const existing = await db
-      .select()
-      .from(ingredients)
-      .where(eq(ingredients.stringId, stringId))
-      .limit(1);
+    const results: Array<{
+      generated: Awaited<ReturnType<typeof generateIngredient>>;
+      existing: typeof ingredients.$inferSelect | null;
+      created: typeof ingredients.$inferSelect | null;
+    }> = [];
 
-    if (existing[0]) {
-      const attrs = existing[0].attributes as typeof generated.attributes;
-      const attrStr = formatAttributes(attrs);
+    // Check for existing ingredients and create new ones
+    for (const generated of generatedIngredients) {
+      const stringId = nameToStringId(generated.name);
 
-      const embed = new EmbedBuilder()
-        .setTitle("✨ Ingredient Generated")
-        .setDescription(
-          `An ingredient with this name already exists! Here's the existing ingredient:`,
-        )
-        .setColor(0x9370db)
-        .addFields(
-          {
-            name: "Name",
-            value: existing[0].name,
-            inline: true,
-          },
-          {
-            name: "Description",
-            value: existing[0].description,
-          },
-          {
-            name: "Attributes",
-            value: attrStr,
-          },
-        )
-        .setTimestamp();
+      // Check if ingredient already exists
+      const existing = await db
+        .select()
+        .from(ingredients)
+        .where(eq(ingredients.stringId, stringId))
+        .limit(1);
 
-      if (existing[0].emoji) {
-        embed.setDescription(
-          `${existing[0].emoji} ${existing[0].name} already exists!`,
-        );
+      if (existing[0]) {
+        results.push({
+          generated,
+          existing: existing[0],
+          created: null,
+        });
+      } else {
+        // Create new ingredient
+        const newIngredient = await db
+          .insert(ingredients)
+          .values({
+            stringId,
+            name: generated.name,
+            description: generated.description,
+            attributes: generated.attributes as any,
+            rarity: generated.rarity,
+            emoji: generated.emoji,
+          })
+          .returning();
+
+        results.push({
+          generated,
+          existing: null,
+          created: newIngredient[0] ?? null,
+        });
       }
-
-      await interaction.editReply({ embeds: [embed] });
-      return;
     }
 
-    // Create new ingredient
-    const newIngredient = await db
-      .insert(ingredients)
-      .values({
-        stringId,
-        name: generated.name,
-        description: generated.description,
-        attributes: generated.attributes as any,
-        rarity: generated.rarity,
-        emoji: generated.emoji,
-      })
-      .returning();
-
-    if (!newIngredient[0]) {
-      throw new Error("Failed to create ingredient in database");
-    }
-
-    const attrs = newIngredient[0].attributes as typeof generated.attributes;
-    const attrStr = formatAttributes(attrs);
+    const created = results.filter((r) => r.created !== null);
+    const duplicates = results.filter((r) => r.existing !== null);
 
     const embed = new EmbedBuilder()
       .setTitle("✨ Ingredient Generated")
-      .setDescription(
-        `Successfully generated a new ingredient: **${newIngredient[0].name}**`,
-      )
       .setColor(0x9370db)
-      .addFields(
-        {
-          name: "Name",
-          value: newIngredient[0].name,
-          inline: true,
-        },
-        {
-          name: "Description",
-          value: newIngredient[0].description,
-        },
-        {
-          name: "Attributes",
-          value: attrStr,
-        },
-      )
       .setTimestamp();
 
-    if (newIngredient[0].emoji) {
+    if (created.length > 0) {
+      const createdList = created
+        .map((r) => {
+          const ingredient = r.created!;
+          const attrs = ingredient.attributes as typeof r.generated.attributes;
+          const attrStr = formatAttributes(attrs);
+          const emoji = ingredient.emoji ? `${ingredient.emoji} ` : "";
+          return `${emoji}**${ingredient.name}** (${ingredient.rarity})\n${ingredient.description}\n${attrStr}`;
+        })
+        .join("\n\n");
+
+      addLongField(
+        embed,
+        `✅ Created (${created.length})`,
+        createdList,
+        false,
+      );
+    }
+
+    if (duplicates.length > 0) {
+      const duplicateList = duplicates
+        .map((r) => {
+          const ingredient = r.existing!;
+          const attrs = ingredient.attributes as typeof r.generated.attributes;
+          const attrStr = formatAttributes(attrs);
+          const emoji = ingredient.emoji ? `${ingredient.emoji} ` : "";
+          return `${emoji}**${ingredient.name}** (${ingredient.rarity})\n${ingredient.description}\n${attrStr}`;
+        })
+        .join("\n\n");
+
+      addLongField(
+        embed,
+        `⚠️ Already Exists (${duplicates.length})`,
+        duplicateList,
+        false,
+      );
+    }
+
+    if (created.length === 0 && duplicates.length === 0) {
+      embed.setDescription("❌ Failed to generate any ingredients.");
+    } else if (created.length === amount) {
       embed.setDescription(
-        `Successfully generated: ${newIngredient[0].emoji} **${newIngredient[0].name}**`,
+        `Successfully generated ${amount} new ingredient${amount > 1 ? "s" : ""}!`,
+      );
+    } else {
+      embed.setDescription(
+        `Generated ${created.length} new ingredient${created.length !== 1 ? "s" : ""} and found ${duplicates.length} duplicate${duplicates.length !== 1 ? "s" : ""}.`,
       );
     }
 
@@ -248,7 +276,7 @@ async function handleGenIngredient(
     }
     try {
       await interaction.editReply({
-        content: "❌ An error occurred while generating the ingredient.",
+        content: "❌ An error occurred while generating the ingredient(s).",
       });
     } catch (replyError) {
       console.error("[Gen:Ingredient] Failed to send error reply:", replyError);
@@ -262,98 +290,111 @@ async function handleGenModifier(
   try {
     await interaction.deferReply();
 
+    const amount = interaction.options.getInteger("amount") ?? 1;
     console.log(
-      `[Gen:Modifier] Generating special ingredient for user ${interaction.user.id}`,
+      `[Gen:Modifier] Generating ${amount} special ingredient(s) for user ${interaction.user.id}`,
     );
 
-    const generated = await generateSpecialIngredient();
-    const stringId = nameToStringId(generated.name);
+    // Generate all special ingredients in parallel
+    const generatedModifiers = await Promise.all(
+      Array.from({ length: amount }, () => generateSpecialIngredient()),
+    );
 
-    // Check if special ingredient already exists
-    const existing = await db
-      .select()
-      .from(specialIngredients)
-      .where(eq(specialIngredients.stringId, stringId))
-      .limit(1);
+    const results: Array<{
+      generated: Awaited<ReturnType<typeof generateSpecialIngredient>>;
+      existing: typeof specialIngredients.$inferSelect | null;
+      created: typeof specialIngredients.$inferSelect | null;
+    }> = [];
 
-    if (existing[0]) {
-      const embed = new EmbedBuilder()
-        .setTitle("✨ Special Ingredient Generated")
-        .setDescription(
-          `A special ingredient with this name already exists! Here's the existing one:`,
-        )
-        .setColor(0xff69b4)
-        .addFields(
-          {
-            name: "Name",
-            value: existing[0].name,
-            inline: true,
-          },
-          {
-            name: "Rarity",
-            value: existing[0].rarity,
-            inline: true,
-          },
-          {
-            name: "Description",
-            value: existing[0].description,
-          },
-        )
-        .setTimestamp();
+    // Check for existing special ingredients and create new ones
+    for (const generated of generatedModifiers) {
+      const stringId = nameToStringId(generated.name);
 
-      if (existing[0].emoji) {
-        embed.setDescription(
-          `${existing[0].emoji} ${existing[0].name} already exists!`,
-        );
+      // Check if special ingredient already exists
+      const existing = await db
+        .select()
+        .from(specialIngredients)
+        .where(eq(specialIngredients.stringId, stringId))
+        .limit(1);
+
+      if (existing[0]) {
+        results.push({
+          generated,
+          existing: existing[0],
+          created: null,
+        });
+      } else {
+        // Create new special ingredient
+        const newSpecialIngredient = await db
+          .insert(specialIngredients)
+          .values({
+            stringId,
+            name: generated.name,
+            description: generated.description,
+            rarity: generated.rarity,
+            emoji: generated.emoji,
+          })
+          .returning();
+
+        results.push({
+          generated,
+          existing: null,
+          created: newSpecialIngredient[0] ?? null,
+        });
       }
-
-      await interaction.editReply({ embeds: [embed] });
-      return;
     }
 
-    // Create new special ingredient
-    const newSpecialIngredient = await db
-      .insert(specialIngredients)
-      .values({
-        stringId,
-        name: generated.name,
-        description: generated.description,
-        rarity: generated.rarity,
-        emoji: generated.emoji,
-      })
-      .returning();
-
-    if (!newSpecialIngredient[0]) {
-      throw new Error("Failed to create special ingredient in database");
-    }
+    const created = results.filter((r) => r.created !== null);
+    const duplicates = results.filter((r) => r.existing !== null);
 
     const embed = new EmbedBuilder()
       .setTitle("✨ Special Ingredient Generated")
-      .setDescription(
-        `Successfully generated a new special ingredient: **${newSpecialIngredient[0].name}**`,
-      )
       .setColor(0xff69b4)
-      .addFields(
-        {
-          name: "Name",
-          value: newSpecialIngredient[0].name,
-          inline: true,
-        },
-        {
-          name: "Rarity",
-          value: newSpecialIngredient[0].rarity,
-          inline: true,
-        },
-        {
-          name: "Description",
-          value: newSpecialIngredient[0].description,
-        },
-      )
       .setTimestamp();
 
-    if (newSpecialIngredient[0].emoji) {
+    if (created.length > 0) {
+      const createdList = created
+        .map((r) => {
+          const modifier = r.created!;
+          const emoji = modifier.emoji ? `${modifier.emoji} ` : "";
+          return `${emoji}**${modifier.name}** (${modifier.rarity})\n${modifier.description}`;
+        })
+        .join("\n\n");
+
+      addLongField(
+        embed,
+        `✅ Created (${created.length})`,
+        createdList,
+        false,
+      );
+    }
+
+    if (duplicates.length > 0) {
+      const duplicateList = duplicates
+        .map((r) => {
+          const modifier = r.existing!;
+          const emoji = modifier.emoji ? `${modifier.emoji} ` : "";
+          return `${emoji}**${modifier.name}** (${modifier.rarity})\n${modifier.description}`;
+        })
+        .join("\n\n");
+
+      addLongField(
+        embed,
+        `⚠️ Already Exists (${duplicates.length})`,
+        duplicateList,
+        false,
+      );
+    }
+
+    if (created.length === 0 && duplicates.length === 0) {
+      embed.setDescription("❌ Failed to generate any special ingredients.");
+    } else if (created.length === amount) {
       embed.setDescription(
-        `Successfully generated: ${newSpecialIngredient[0].emoji} **${newSpecialIngredient[0].name}**`,
+        `Successfully generated ${amount} new special ingredient${amount > 1 ? "s" : ""}!`,
+      );
+    } else {
+      embed.setDescription(
+        `Generated ${created.length} new special ingredient${created.length !== 1 ? "s" : ""} and found ${duplicates.length} duplicate${duplicates.length !== 1 ? "s" : ""}.`,
       );
     }
 
@@ -366,7 +407,7 @@ async function handleGenModifier(
     }
     try {
       await interaction.editReply({
-        content: "❌ An error occurred while generating the special ingredient.",
+        content: "❌ An error occurred while generating the special ingredient(s).",
       });
     } catch (replyError) {
       console.error("[Gen:Modifier] Failed to send error reply:", replyError);
@@ -380,30 +421,54 @@ export const command = {
     .setDescription("Generate AI content for game items")
     .addSubcommand((subcommand) =>
       subcommand
-        .setName("seeds")
-        .setDescription("Generate a new seed"),
+        .setName("seed")
+        .setDescription("Generate a new seed")
+        .addIntegerOption((option) =>
+          option
+            .setName("amount")
+            .setDescription("Number of seeds to generate")
+            .setMinValue(1)
+            .setMaxValue(20)
+            .setRequired(false),
+        ),
     )
     .addSubcommand((subcommand) =>
       subcommand
-        .setName("ingredients")
-        .setDescription("Generate a new ingredient"),
+        .setName("ingredient")
+        .setDescription("Generate a new ingredient")
+        .addIntegerOption((option) =>
+          option
+            .setName("amount")
+            .setDescription("Number of ingredients to generate")
+            .setMinValue(1)
+            .setMaxValue(20)
+            .setRequired(false),
+        ),
     )
     .addSubcommand((subcommand) =>
       subcommand
-        .setName("modifiers")
-        .setDescription("Generate a new special ingredient"),
+        .setName("modifier")
+        .setDescription("Generate a new special ingredient")
+        .addIntegerOption((option) =>
+          option
+            .setName("amount")
+            .setDescription("Number of special ingredients to generate")
+            .setMinValue(1)
+            .setMaxValue(20)
+            .setRequired(false),
+        ),
     ),
   execute: async (interaction: ChatInputCommandInteraction): Promise<void> => {
     const subcommand = interaction.options.getSubcommand();
 
     switch (subcommand) {
-      case "seeds":
+      case "seed":
         await handleGenSeed(interaction);
         break;
-      case "ingredients":
+      case "ingredient":
         await handleGenIngredient(interaction);
         break;
-      case "modifiers":
+      case "modifier":
         await handleGenModifier(interaction);
         break;
       default:
