@@ -181,10 +181,10 @@ export function formatNonZeroAttributes(
 
 /**
  * Formats attributes as emojis only, showing opposite emojis for negative values.
- * Example: { spice: 5, bane: 3, chaos: -2, fizz: -1 } -> "+🌶️☠️⚖️🌅"
+ * Example: { spice: 5, bane: 3, chaos: -2, fizz: -1 } -> "🌶️☠️⚖️🌅"
  *
  * @param attributes - The attributes object with numeric values
- * @returns Formatted string with emojis (all shown with + prefix since negatives display as opposites)
+ * @returns Formatted string with emojis (negatives display as opposites)
  */
 export function formatAttributeEmojis(
   attributes: Record<string, number>,
@@ -210,7 +210,7 @@ export function formatAttributeEmojis(
     }
   }
 
-  return `+${emojis.join("")}`;
+  return emojis.join("");
 }
 
 /**
