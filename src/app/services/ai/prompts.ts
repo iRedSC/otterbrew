@@ -588,3 +588,77 @@ Return ONLY valid JSON in this exact format:
   "emoji": "✨"
 }`;
 }
+
+export function getPotionEffectGenerationPrompt(input: {
+  stat: string;
+  operation: string;
+  trigger: string;
+  tier: string;
+  suggestedValue?: number;
+  tickInterval?: number;
+}): string {
+  const triggerDescriptions: Record<string, string> = {
+    value: "instant modification",
+    change_good: "when the stat changes in a beneficial way",
+    change_bad: "when the stat changes in a harmful way",
+    brewing: "during brewing operations",
+    adventure: "during adventure encounters",
+    bazaar: "during bazaar encounters",
+    combat: "during combat scenarios",
+    harvesting: "during garden harvest",
+    shopping: "during shop interactions",
+    on_consume: "when consuming a potion",
+    on_craft: "when brewing completes",
+    periodic: "at regular intervals",
+  };
+
+  const operationDescriptions: Record<string, string> = {
+    multiply: "multiplies",
+    add: "adds to",
+    subtract: "subtracts from",
+    set: "sets to",
+    add_over_time: "adds over time",
+    subtract_over_time: "subtracts over time",
+  };
+
+  const triggerDesc = triggerDescriptions[input.trigger] || input.trigger;
+  const operationDesc = operationDescriptions[input.operation] || input.operation;
+
+  let prompt = `You are a creative assistant for a fantasy alchemy game called Otterbrew. Generate a potion effect description.
+
+Effect Details:
+- Stat affected: ${input.stat}
+- Operation: ${input.operation} (${operationDesc})
+- Trigger: ${input.trigger} (applies ${triggerDesc})
+- Tier: ${input.tier}
+`;
+
+  if (input.suggestedValue !== undefined) {
+    prompt += `- Suggested value: ${input.suggestedValue}\n`;
+  }
+
+  if (input.tickInterval !== undefined) {
+    const minutes = Math.floor(input.tickInterval / 60);
+    prompt += `- Tick interval: ${input.tickInterval} seconds (${minutes} minute${minutes !== 1 ? "s" : ""})\n`;
+  }
+
+  prompt += `
+Guidelines:
+- Create a creative, thematic effect name (3-50 characters)
+- Write a clear description explaining what the effect does (10-500 characters)
+- The effect should match the ${input.tier} tier in power level
+- For multiply operations: value should be between 1.1x and 3x typically
+- For add/subtract operations: value should be reasonable for the stat
+- For over_time operations: describe the rate (e.g., "5 gold per minute")
+- For periodic effects: describe the interval (e.g., "every 5 minutes")
+- For contextual triggers: emphasize when the effect applies (e.g., "while brewing", "in adventures")
+- For event triggers: describe when it activates (e.g., "on consuming any potion")
+
+Return ONLY valid JSON in this exact format:
+{
+  "displayName": "Effect Name [description]",
+  "description": "Detailed description of what this effect does"
+}`;
+
+  return prompt;
+}

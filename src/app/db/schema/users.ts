@@ -1,4 +1,5 @@
 import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import type { ActiveEffect } from "../../services/effects/types.js";
 
 export interface InventorySlot {
   itemType: "potion" | "ingredient" | "seed" | "grimoire";
@@ -20,6 +21,10 @@ export const users = pgTable("users", {
   maxInventorySlots: integer("max_inventory_slots").notNull().default(25),
   inventory: jsonb("inventory")
     .$type<InventorySlot[]>()
+    .notNull()
+    .default("[]"),
+  activeEffects: jsonb("active_effects")
+    .$type<ActiveEffect[]>()
     .notNull()
     .default("[]"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

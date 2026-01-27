@@ -3,6 +3,7 @@ import {
   InteractionType,
   type ChatInputCommandInteraction,
   type ButtonInteraction,
+  type AutocompleteInteraction,
   MessageFlags,
 } from "discord.js";
 import { readdirSync } from "fs";
@@ -17,6 +18,7 @@ interface Command {
     name: string;
   };
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+  autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>;
 }
 
 interface ButtonHandler {
@@ -53,6 +55,24 @@ export async function handleInteraction(
   console.log(
     `[Interaction] Received interaction: ${interaction.type} from user ${interaction.user?.id}`,
   );
+
+  // Handle autocomplete interactions
+  if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
+    const autocompleteInteraction = interaction as AutocompleteInteraction;
+    const command = commands.get(autocompleteInteraction.commandName);
+
+    if (command && command.autocomplete) {
+      try {
+        await command.autocomplete(autocompleteInteraction);
+      } catch (error) {
+        console.error(
+          `[Interaction] Error handling autocomplete for ${autocompleteInteraction.commandName}:`,
+          error,
+        );
+      }
+    }
+    return;
+  }
 
   // Handle button interactions
   if (interaction.type === InteractionType.MessageComponent) {

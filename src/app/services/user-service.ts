@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@db";
 import { users, type User } from "../db/schema/users.js";
+import { modifyUserStat } from "./effects/index.js";
 
 export async function getOrCreateUser(
   discordId: string,
@@ -64,11 +65,36 @@ export async function getOrCreateUser(
 export async function updateUserGold(
   discordId: string,
   amount: number,
+  context?: string,
 ): Promise<User> {
+  // Get current user to calculate change amount
+  const currentUser = await db
+    .select()
+    .from(users)
+    .where(eq(users.discordId, discordId))
+    .limit(1);
+
+  if (!currentUser[0]) {
+    throw new Error(`User ${discordId} not found`);
+  }
+
+  const currentGold = currentUser[0].gold;
+  const changeAmount = amount - currentGold;
+
+  // Apply effects to determine final gold amount
+  const finalGold = await modifyUserStat(
+    discordId,
+    "gold",
+    currentGold,
+    changeAmount,
+    context,
+  );
+
+  // Update database with final value
   const updated = await db
     .update(users)
     .set({
-      gold: amount,
+      gold: finalGold,
       updatedAt: new Date(),
     })
     .where(eq(users.discordId, discordId))

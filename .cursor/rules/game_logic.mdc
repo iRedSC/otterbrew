@@ -82,44 +82,113 @@ Effects modify gameplay stats temporarily. **Effects cannot modify slot limits**
 ```ts
 interface PotionEffect {
   type: EffectType;
-  operation: 'multiply' | 'add' | 'set';
+  operation: 'multiply' | 'add' | 'subtract' | 'set' | 'add_over_time' | 'subtract_over_time';
+  trigger: EffectTrigger;
   value: number;
   duration: number; // seconds (0 = permanent, only for ultra-mythic tier)
+  tickInterval?: number; // seconds between ticks for over_time and periodic effects
   overdoseThreshold: number;
-  overdoseEffect: PotionEffect;
+  overdoseEffect?: PotionEffect;
 }
+
+type EffectTrigger = 
+  // Stat change triggers
+  | 'value'           // Instant modification to stat itself
+  | 'change_good'     // Applied when stat changes in "good" direction (stat-specific)
+  | 'change_bad'      // Applied when stat changes in "bad" direction (stat-specific)
+  // Contextual triggers
+  | 'brewing'         // Only applies during brewing operations
+  | 'adventure'       // Only applies during adventure encounters
+  | 'bazaar'          // Only applies during bazaar encounters
+  | 'combat'          // Only applies during combat scenarios
+  | 'harvesting'      // Only applies during garden harvest
+  | 'shopping'        // Only applies during shop interactions
+  // Event triggers
+  | 'on_consume'      // Applied when consuming a potion
+  | 'on_craft'        // Applied when brewing completes
+  | 'periodic';       // Applied at regular intervals (requires tickInterval)
 ```
 
+#### Operation Types
+1. **multiply**: Multiplies the base value (e.g., 2x gold gain)
+2. **add**: Adds to the base value (e.g., +50 gold)
+3. **subtract**: Subtracts from the base value (e.g., -10 seconds brew time)
+4. **set**: Sets the value to a specific amount (rare, overrides all previous calculations)
+5. **add_over_time**: Adds value on each tick (requires tickInterval)
+6. **subtract_over_time**: Subtracts value on each tick (e.g., mana drain)
+
+#### Trigger Types
+
+**Stat Change Triggers** (Applied when stat values change):
+- **value**: Instant modification to the stat itself (e.g., +100 gold immediately)
+- **change_good**: Applied when a stat changes in the "good" direction (stat-specific)
+  - For gold: increase is good (e.g., 2x gold earned)
+  - For brew_time: decrease is good (e.g., -50% brew time)
+  - For difficulty: decrease is good (e.g., easier adventures)
+- **change_bad**: Applied when a stat changes in the "bad" direction (stat-specific)
+  - For gold: decrease is bad (e.g., 2x gold loss)
+  - For brew_time: increase is bad (e.g., +50% brew time)
+  - For difficulty: increase is bad (e.g., harder adventures)
+
+**Important**: Each stat defines what direction is "good" vs "bad" via `goodDirection` configuration. The effect system automatically determines which trigger applies based on the stat's configuration and the change amount.
+
+**Contextual Triggers** (Applied only during specific activities):
+- **brewing**: Only applies during brewing operations
+- **adventure**: Only applies during adventure encounters
+- **bazaar**: Only applies during bazaar encounters
+- **combat**: Only applies during combat scenarios in stories
+- **harvesting**: Only applies during garden harvest
+- **shopping**: Only applies during shop interactions (buying/selling)
+
+**Event Triggers** (Applied when specific events occur):
+- **on_consume**: Applied when consuming a potion or item
+- **on_craft**: Applied when brewing completes
+- **periodic**: Applied at regular intervals (like over_time but not stat-specific, requires tickInterval)
+
 #### Effect Types (Expandable)
-Core types to implement:
-- `gold_multiplier` - Increases gold earned
-- `brew_speed` - Reduces brewing time
-- `garden_growth_speed` - Reduces plant growth time
-- `garden_yield_multiplier` - Increases harvest quantity
-- `shop_reroll_cost` - Modifies reroll cost
-- `ingredient_quality` - Affects ingredient attribute values
-- `effect_duration` - Increases duration of other effects
-- `overdose_immunity` - Prevents overdose (very rare)
-- `discovery_bonus` - Better quality on potion discovery
-- `adventure_cooldown` - Reduces daily adventure cooldown
-- `bazaar_cooldown` - Reduces bazaar cooldown
-- `story_difficulty_modifier` - Easier/harder story scenarios
-- `customer_satisfaction_bonus` - Improves bazaar rating gains
+Effect types are now defined as combinations of stat + trigger. Examples:
+- `gold_value_add` - Instant gold addition
+- `gold_gain_multiply` - Multiplies gold when earned (change_good)
+- `gold_loss_multiply` - Multiplies gold when spent (change_bad)
+- `gold_income_over_time` - Passive gold income (add_over_time with periodic)
+- `brew_time_subtract` - Reduces brew time (value or brewing trigger)
+- `ingredient_quality_brewing` - Affects ingredient quality during brewing (brewing trigger)
+- `adventure_gold_multiply` - Multiplies gold from adventures (adventure + change_good)
 
 **REMOVED**: cauldron_slots, inventory_slots, garden_plots, shop_slots (now Grimoire-only)
 
 #### Effect Stacking Rules
 1. **Same type overwrites**: Using another "2x gold" effect replaces the existing one
 2. **Different types stack**: Gold multiplier + brew speed both active
-3. **Calculation order**: multiply → add → set
-   - Example: base = 10, [2x multiply, +5 add] = (10 * 2) + 5 = 25
-4. **Overdose checking**: Sum ALL active effects of same type, check against threshold
+3. **Calculation order**: multiply → add → subtract → set
+   - Example: base = 10, [2x multiply, +5 add, -2 subtract] = ((10 * 2) + 5) - 2 = 23
+   - If any `set` operation exists, it overrides all previous calculations
+4. **Trigger combination**: When modifying a stat in a context, both stat triggers AND context triggers apply
+   - Example: Earning gold in adventure = apply both 'change_good' and 'adventure' triggers
+5. **Overdose checking**: Sum ALL active effects of same type, check against threshold
 
 #### Duration System
 - Track effect start time and duration in player state
 - Expire effects on command execution (lazy expiration)
 - Display time remaining in player status
 - Permanent effects (duration = 0) only from ultra-rare sources
+- For over_time and periodic effects: track `lastTickAt` to calculate accumulated value
+
+#### Over-Time Effects
+- **add_over_time** / **subtract_over_time**: Applied on each tick based on `tickInterval`
+- Calculated lazily when commands execute (not via background jobs)
+- Formula: `accumulatedValue = (elapsedSeconds / tickInterval) * value`
+- Example: "Slow Drain [-5 mana/min]" with tickInterval=60 means -5 mana every 60 seconds
+- Periodic effects work similarly but aren't tied to a specific stat change
+
+#### Display Format
+Effects show with clear formatting:
+- "Lucky Streak [2x gold gain] (5:23)" - multiply change_good with duration
+- "Generous Curse [2x gold loss] (3:45)" - multiply change_bad with duration
+- "Rich [+100 gold]" - add value (permanent, no duration shown)
+- "Slow Drain [-5 mana/min] (10:00)" - subtract_over_time
+- "Alchemist's Focus [+2 ingredient quality while brewing] (10:00)" - contextual trigger
+- "Master Brewer [+5% discovery on craft] (20:00)" - event trigger
 
 ## Grimoires
 

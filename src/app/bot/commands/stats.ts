@@ -4,6 +4,12 @@ import {
   EmbedBuilder,
 } from "discord.js";
 import { getOrCreateUser } from "../../services/user-service.js";
+import {
+  formatEffectsList,
+  groupEffectsByStat,
+} from "../../services/effects/index.js";
+import type { ActiveEffect } from "../../services/effects/types.js";
+import { addLongField } from "../utils/embed-helpers.js";
 
 export const command = {
   data: new SlashCommandBuilder()
@@ -22,6 +28,14 @@ export const command = {
         discordId: user.discordId,
         gold: user.gold,
       });
+
+      // Get all active effects
+      const allEffects: ActiveEffect[] =
+        (user.activeEffects as ActiveEffect[]) ?? [];
+      const now = Date.now();
+      const activeEffects = allEffects.filter(
+        (effect) => effect.expiresAt === null || effect.expiresAt >= now,
+      );
 
       console.log(`[Stats] Building embed...`);
       const embed = new EmbedBuilder()
@@ -73,6 +87,25 @@ export const command = {
         .setFooter({
           text: `Player since ${new Date(user.createdAt).toLocaleDateString()}`,
         });
+
+      // Add active effects section if any exist
+      if (activeEffects.length > 0) {
+        const groupedEffects = groupEffectsByStat(activeEffects);
+        const effectFields: string[] = [];
+
+        for (const [stat, effects] of Object.entries(groupedEffects)) {
+          const effectsText = formatEffectsList(effects);
+          effectFields.push(`**${stat}**:\n${effectsText}`);
+        }
+
+        const effectsText = effectFields.join("\n\n");
+        addLongField(embed, "✨ Active Effects", effectsText);
+      } else {
+        embed.addFields({
+          name: "✨ Active Effects",
+          value: "No active effects",
+        });
+      }
 
       console.log(`[Stats] Sending editReply...`);
       await interaction.editReply({ embeds: [embed] });

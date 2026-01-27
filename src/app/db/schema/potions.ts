@@ -23,11 +23,38 @@ export type EffectType =
   | "story_difficulty_modifier"
   | "customer_satisfaction_bonus";
 
+export type EffectTrigger =
+  // Stat change triggers
+  | "value"
+  | "change_good"
+  | "change_bad"
+  // Contextual triggers
+  | "brewing"
+  | "adventure"
+  | "bazaar"
+  | "combat"
+  | "harvesting"
+  | "shopping"
+  // Event triggers
+  | "on_consume"
+  | "on_craft"
+  | "periodic";
+
+export type EffectOperation =
+  | "multiply"
+  | "add"
+  | "subtract"
+  | "set"
+  | "add_over_time"
+  | "subtract_over_time";
+
 export interface PotionEffect {
   type: EffectType;
-  operation: "multiply" | "add" | "set";
+  operation: EffectOperation;
+  trigger: EffectTrigger;
   value: number;
   duration: number; // seconds, 0 = permanent
+  tickInterval?: number; // seconds between ticks for over_time and periodic effects
   overdoseThreshold: number;
   overdoseEffect?: PotionEffect;
 }

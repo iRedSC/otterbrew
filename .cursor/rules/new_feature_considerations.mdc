@@ -159,6 +159,83 @@ embed.addFields({ name: "📦 Items", value: itemList });
 
 ---
 
+## Effects System Integration
+
+**When**: Adding any new stat or modifiable value to the game.
+
+**Required Actions**:
+
+1. Define which operation types make sense for this stat
+2. Define what direction is "good" vs "bad" for this stat:
+   - **Good direction**: The direction that benefits the player
+   - **Bad direction**: The direction that harms the player
+   - Examples:
+     - Gold: increase = good, decrease = bad
+     - Brew time: decrease = good, increase = bad
+     - Difficulty: decrease = good, increase = bad
+     - Garden yield: increase = good, decrease = bad
+3. Define which trigger types are applicable:
+   - **Stat triggers**: value, change_good, change_bad
+   - **Context triggers**: brewing, adventure, bazaar, combat, harvesting, shopping
+   - **Event triggers**: on_consume, on_craft, periodic
+   - **Over-time operations**: add_over_time, subtract_over_time (requires tickInterval)
+4. Add stat configuration to [`src/app/services/effects/config.ts`](src/app/services/effects/config.ts) with:
+   - `goodDirection`: 'increase' | 'decrease' - defines what direction is "good"
+   - `supportedOperations`: Array of operation types this stat supports
+   - `supportedTriggers`: Array of trigger types this stat supports
+   - `allowsOverTime`: Whether this stat supports over_time operations
+5. Create effect types for each meaningful combination
+6. Update [`src/app/services/effects/types.ts`](src/app/services/effects/types.ts) if adding new effect types
+7. Update [`src/app/services/effects/application.ts`](src/app/services/effects/application.ts) with stat-specific logic
+8. Ensure all code that modifies the stat:
+   - Calls the effect system using `modifyUserStat()` or similar
+   - Passes appropriate context for contextual triggers (e.g., 'adventure' when in adventure)
+   - Triggers event effects when appropriate (e.g., `triggerEventEffects(userId, 'craft')` when brewing completes)
+
+**Examples by stat type**:
+
+- **Gold**: goodDirection = 'increase'
+  - Stat triggers: value, change_good (earning), change_bad (spending)
+  - Context triggers: adventure, bazaar, shopping
+  - Event triggers: on_craft, periodic
+  - Over-time: add_over_time (passive income), subtract_over_time (upkeep)
+- **Brew Time**: goodDirection = 'decrease'
+  - Stat triggers: value only (calculated once at brew start)
+  - Context triggers: brewing
+  - No over-time (instant calculation)
+- **Ingredient Quality**: goodDirection = 'increase'
+  - Stat triggers: value
+  - Context triggers: brewing, harvesting
+- **Garden Yield**: goodDirection = 'increase'
+  - Stat triggers: value, change_good, change_bad
+  - Context triggers: harvesting
+- **Customer Satisfaction**: goodDirection = 'increase'
+  - Stat triggers: value, change_good, change_bad
+  - Context triggers: bazaar
+- **Max Slots**: Grimoire-only, NO effects allowed
+
+**Files to Update**:
+- [`src/app/services/effects/config.ts`](src/app/services/effects/config.ts) - Add stat configuration
+- [`src/app/services/effects/types.ts`](src/app/services/effects/types.ts) - Add new effect types if needed
+- [`src/app/services/effects/application.ts`](src/app/services/effects/application.ts) - Add stat-specific logic
+- All code that modifies the stat - Use effect system
+
+**Purpose**: Ensures new stats are properly integrated with the effects system, allowing potions and other effects to modify them appropriately.
+
+**Checklist**:
+
+- [ ] Defined goodDirection for the stat (increase or decrease)
+- [ ] Identified applicable operation types
+- [ ] Identified applicable trigger types
+- [ ] Added stat configuration to effects/config.ts with goodDirection
+- [ ] Created effect type constants
+- [ ] Updated effects service
+- [ ] Modified stat usage to apply effects (using determineTrigger)
+- [ ] Added effect display formatting
+- [ ] Documented in effect type descriptions
+
+---
+
 ## Summary Checklist
 
 When adding a new feature, check which systems apply:
@@ -170,3 +247,4 @@ When adding a new feature, check which systems apply:
 - [ ] **Inventory Tools**: Added to `/invtools` if needed?
 - [ ] **Item Service**: Properly integrated in `item-service.ts`?
 - [ ] **Command Registration**: Command file created in correct location?
+- [ ] **Effects System**: Stat configured with goodDirection and supported triggers?
