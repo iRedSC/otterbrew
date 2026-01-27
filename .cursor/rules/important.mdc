@@ -20,3 +20,14 @@ embed.addFields({ name: "📦 Items", value: itemList });
 ```
 
 This applies to any command that displays lists, inventories, or other variable-length content in embed fields.
+
+## Database Command Table Management
+
+**IMPORTANT**: When adding a new database table to the codebase, you must also add it to the `/database clear` command:
+
+1. Add the table schema import to `src/app/bot/commands/database/clear.ts`
+2. Add the table to the `tableMap` object in `clear.ts`
+3. Add a display name entry to `tableDisplayNames` in `clear.ts`
+4. Add a choice option to the `table` string option in `src/app/bot/commands/database.ts`
+
+This ensures the new table can be cleared via the database management command.
