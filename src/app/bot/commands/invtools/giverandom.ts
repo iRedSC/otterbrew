@@ -2,6 +2,7 @@ import { type ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
 import { getOrCreateUser } from "../../../services/user-service.js";
 import {
   addItemToInventory,
+  parseInventory,
 } from "../../../services/item-service.js";
 import { db } from "@db";
 import { seeds } from "../../../db/schema/seeds.js";
@@ -34,12 +35,17 @@ export async function handleGiverandom(
       type: string;
       details: ItemDetails | null;
     }> = [];
+    
+    // Track if inventory is full
+    let inventoryFull = false;
+    let itemsAvailable = false;
 
     // Give seeds - only from existing items in database
     if (itemType === "seed" || itemType === "all") {
       const allSeeds = await db.select().from(seeds);
       
       if (allSeeds.length > 0) {
+        itemsAvailable = true;
         for (let i = 0; i < quantity; i++) {
           // Randomly select an existing seed
           const randomSeed = allSeeds[Math.floor(Math.random() * allSeeds.length)];
@@ -58,6 +64,13 @@ export async function handleGiverandom(
                 type: "Seed",
                 details,
               });
+            } else {
+              // Check if inventory is full by checking current user state
+              const currentUser = await getOrCreateUser(user.discordId);
+              const currentInventory = parseInventory(currentUser.inventory);
+              if (currentInventory.length >= currentUser.maxInventorySlots) {
+                inventoryFull = true;
+              }
             }
           }
         }
@@ -70,6 +83,7 @@ export async function handleGiverandom(
       console.log(`[Invtools:GiveRandom] Found ${allIngredients.length} ingredients in database`);
       
       if (allIngredients.length > 0) {
+        itemsAvailable = true;
         for (let i = 0; i < quantity; i++) {
           // Randomly select an existing ingredient
           const randomIngredient = allIngredients[Math.floor(Math.random() * allIngredients.length)];
@@ -93,6 +107,12 @@ export async function handleGiverandom(
               });
             } else {
               console.error(`[Invtools:GiveRandom] Failed to add ingredient ${randomIngredient.id} to inventory`);
+              // Check if inventory is full by checking current user state
+              const currentUser = await getOrCreateUser(user.discordId);
+              const currentInventory = parseInventory(currentUser.inventory);
+              if (currentInventory.length >= currentUser.maxInventorySlots) {
+                inventoryFull = true;
+              }
             }
           }
         }
@@ -106,6 +126,7 @@ export async function handleGiverandom(
       const allSpecialIngredients = await db.select().from(specialIngredients);
       
       if (allSpecialIngredients.length > 0) {
+        itemsAvailable = true;
         for (let i = 0; i < quantity; i++) {
           // Randomly select an existing special ingredient
           const randomSpecialIngredient = allSpecialIngredients[Math.floor(Math.random() * allSpecialIngredients.length)];
@@ -140,6 +161,13 @@ export async function handleGiverandom(
                 type: "Special Ingredient",
                 details,
               });
+            } else {
+              // Check if inventory is full by checking current user state
+              const currentUser = await getOrCreateUser(user.discordId);
+              const currentInventory = parseInventory(currentUser.inventory);
+              if (currentInventory.length >= currentUser.maxInventorySlots) {
+                inventoryFull = true;
+              }
             }
           }
         }
@@ -153,15 +181,39 @@ export async function handleGiverandom(
       id: item.details?.id || 'null',
     })));
 
+    // Get current user state to show inventory status
+    const currentUser = await getOrCreateUser(user.discordId);
+    const currentInventory = parseInventory(currentUser.inventory);
+    const inventoryUsage = `${currentInventory.length}/${currentUser.maxInventorySlots}`;
+
     const embed = new EmbedBuilder()
       .setTitle("🎁 Random Items Given")
       .setColor(givenItems.length > 0 ? 0x00ff00 : 0xff0000)
-      .setDescription(
-        givenItems.length > 0
-          ? `Successfully added ${givenItems.length} item(s) to your inventory!`
-          : "❌ No items available. Use `/gen` to create items first, then use this command to randomly give them.",
-      )
       .setTimestamp();
+
+    // Determine the appropriate message based on the situation
+    if (givenItems.length > 0) {
+      embed.setDescription(`Successfully added ${givenItems.length} item(s) to your inventory!`);
+      if (inventoryFull && currentInventory.length >= currentUser.maxInventorySlots) {
+        embed.addFields({
+          name: "⚠️ Inventory Full",
+          value: `Your inventory is full (${inventoryUsage} slots). Some items could not be added. Use \`/inventory\` to manage your items.`,
+          inline: false,
+        });
+      }
+    } else if (inventoryFull) {
+      embed.setDescription(
+        `❌ Your inventory is full (${inventoryUsage} slots). Cannot add any more items.\n\nUse \`/inventory\` to view and manage your items, or \`/invtools clear\` to clear your inventory.`,
+      );
+    } else if (!itemsAvailable) {
+      embed.setDescription(
+        "❌ No items available. Use `/gen` to create items first, then use this command to randomly give them.",
+      );
+    } else {
+      embed.setDescription(
+        "❌ Failed to add items to your inventory. Please try again.",
+      );
+    }
 
     if (givenItems.length > 0) {
       const itemList = givenItems
